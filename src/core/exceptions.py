@@ -12,3 +12,7 @@ class InfraError(AppError):
 
 class WebhookSignatureError(AppError):
     pass
+
+
+class UnsupportedFileTypeError(AppError):
+    pass

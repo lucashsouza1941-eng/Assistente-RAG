@@ -17,10 +17,17 @@ class DocumentService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def create(self, payload: DocumentCreateRequest) -> Document:
+    async def create(self, payload: DocumentCreateRequest, document_id: UUID) -> Document:
         if await self.db.scalar(select(Document).where(Document.content_hash == payload.content_hash)):
             raise ValueError('duplicate content_hash')
-        doc = Document(title=payload.title, type=payload.type, original_filename=payload.original_filename, content_hash=payload.content_hash)
+        doc = Document(
+            id=document_id,
+            title=payload.title,
+            type=payload.type,
+            original_filename=payload.original_filename,
+            content_hash=payload.content_hash,
+            status=DocumentStatus.PENDING,
+        )
         self.db.add(doc)
         await self.db.commit()
         await self.db.refresh(doc)

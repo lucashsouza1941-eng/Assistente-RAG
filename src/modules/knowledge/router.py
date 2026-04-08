@@ -1,14 +1,15 @@
 ﻿from __future__ import annotations
 
-from uuid import UUID
+import json
+from pathlib import Path
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import require_api_key
-from src.dependencies import get_db_session, get_redis, get_settings
-from src.modules.knowledge.models import DocumentStatus
+from src.dependencies import SessionLocal, get_db_session, get_redis, get_settings
 from src.modules.knowledge.schemas import DocumentCreateRequest, DocumentResponse, SearchRequest, SearchResult
 from src.modules.knowledge.service import DocumentService
 
@@ -16,18 +17,68 @@ router = APIRouter(prefix='/knowledge', tags=['knowledge'], dependencies=[Depend
 
 
 @router.post('/documents', response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED)
-async def create_document(title: str = Form(...), type: str = Form(...), content_hash: str = Form(...), file: UploadFile = File(...), db: AsyncSession = Depends(get_db_session)) -> DocumentResponse:
+async def create_document(
+    background_tasks: BackgroundTasks,
+    title: str = Form(...),
+    type: str = Form(...),
+    content_hash: str = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db_session),
+    settings=Depends(get_settings),
+) -> DocumentResponse:
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail='max 10MB')
-    if (file.content_type or '') not in {'application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}:
+
+    allowed = {
+        'application/pdf',
+        'text/plain',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }
+    if (file.content_type or '') not in allowed:
         raise HTTPException(status_code=400, detail='unsupported type')
+
+    document_id = uuid4()
+    original_filename = file.filename or 'upload'
+
+    tmp_dir = Path('/tmp') / str(document_id)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    file_path = tmp_dir / original_filename
+    file_path.write_bytes(content)
+    (tmp_dir / 'meta.json').write_text(
+        json.dumps({'content_type': file.content_type, 'original_filename': original_filename}),
+        encoding='utf-8',
+    )
+
     service = DocumentService(db)
     try:
-        doc = await service.create(DocumentCreateRequest(title=title, type=type, original_filename=file.filename or 'upload', content_hash=content_hash))
+        doc = await service.create(
+            DocumentCreateRequest(
+                title=title,
+                type=type,
+                original_filename=original_filename,
+                content_hash=content_hash,
+            ),
+            document_id=document_id,
+        )
     except ValueError:
         raise HTTPException(status_code=409, detail='duplicate content_hash')
-    return DocumentResponse(id=str(doc.id), title=doc.title, type=doc.type, status=doc.status, chunks_count=doc.chunks_count, created_at=doc.created_at)
+
+    async def _index_task(doc_id: UUID) -> None:
+        async with SessionLocal() as session:
+            task_service = DocumentService(session)
+            await task_service.index(doc_id, settings)
+
+    background_tasks.add_task(_index_task, doc.id)
+
+    return DocumentResponse(
+        id=str(doc.id),
+        title=doc.title,
+        type=doc.type,
+        status=doc.status,
+        chunks_count=doc.chunks_count,
+        created_at=doc.created_at,
+    )
 
 
 @router.post('/documents/{document_id}/reindex', status_code=status.HTTP_202_ACCEPTED)
@@ -46,6 +97,7 @@ async def search(payload: SearchRequest, db: AsyncSession = Depends(get_db_sessi
 async def list_documents(page: int = Query(default=1, ge=1), size: int = Query(default=20, ge=1, le=100), db: AsyncSession = Depends(get_db_session)) -> list[DocumentResponse]:
     from sqlalchemy import select
     from src.modules.knowledge.models import Document
+
     docs = (await db.execute(select(Document).offset((page - 1) * size).limit(size))).scalars().all()
     return [DocumentResponse(id=str(d.id), title=d.title, type=d.type, status=d.status, chunks_count=d.chunks_count, created_at=d.created_at) for d in docs]
 
@@ -54,11 +106,16 @@ async def list_documents(page: int = Query(default=1, ge=1), size: int = Query(d
 async def delete(document_id: UUID, db: AsyncSession = Depends(get_db_session)) -> None:
     from pathlib import Path
     from src.modules.knowledge.models import Document
+
     doc = await db.get(Document, document_id)
     if doc is None:
         raise HTTPException(status_code=404, detail='not found')
     await db.delete(doc)
     await db.commit()
-    p = Path('/tmp') / str(document_id)
-    if p.exists():
-        p.unlink()
+
+    tmp_dir = Path('/tmp') / str(document_id)
+    if tmp_dir.exists() and tmp_dir.is_dir():
+        for p in tmp_dir.iterdir():
+            if p.is_file():
+                p.unlink()
+        tmp_dir.rmdir()
