@@ -1,21 +1,22 @@
 ﻿from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.logging import get_logger
+from src.core.security import require_api_key
 from src.dependencies import get_db_session, get_redis, get_settings
 from src.modules.whatsapp.schemas import WebhookPayload
 from src.modules.whatsapp.service import WhatsAppService
 from src.modules.whatsapp.validators import validate_webhook_signature
 
-router = APIRouter(prefix='/whatsapp', tags=['whatsapp'])
+router = APIRouter(prefix='/whatsapp', tags=['whatsapp'], dependencies=[Depends(require_api_key)])
 logger = get_logger(__name__)
 
 
-@router.get('/webhook')
+@router.get('/webhook', response_class=PlainTextResponse, status_code=status.HTTP_200_OK, responses={401: {'description': 'Unauthorized'}, 403: {'description': 'Invalid verify token'}})
 async def verify_webhook(
     hub_mode: str = Query(alias='hub.mode'),
     hub_verify_token: str = Query(alias='hub.verify_token'),
@@ -27,7 +28,7 @@ async def verify_webhook(
     return PlainTextResponse(content='Forbidden', status_code=403)
 
 
-@router.post('/webhook', dependencies=[Depends(validate_webhook_signature)])
+@router.post('/webhook', response_class=PlainTextResponse, status_code=status.HTTP_200_OK, dependencies=[Depends(validate_webhook_signature)], responses={200: {'description': 'Always returns ok to Meta'}, 401: {'description': 'Unauthorized'}, 403: {'description': 'Invalid signature'}})
 async def receive_webhook(
     request: Request,
     background_tasks: BackgroundTasks,

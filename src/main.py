@@ -4,8 +4,11 @@ from fastapi import FastAPI
 
 from src.core.logging import configure_logging, get_logger
 from src.core.middleware import CorrelationIDMiddleware, TimingMiddleware
+from src.modules.analytics.router import router as analytics_router
 from src.modules.chat.router import router as chat_router
 from src.modules.knowledge.router import router as knowledge_router
+from src.modules.settings.health_router import router as health_router
+from src.modules.settings.router import router as settings_router
 from src.modules.whatsapp.router import router as whatsapp_router
 
 
@@ -26,6 +29,9 @@ def create_app() -> FastAPI:
 
     app.include_router(knowledge_router)
     app.include_router(chat_router)
+    app.include_router(analytics_router)
+    app.include_router(settings_router)
+    app.include_router(health_router)
     app.include_router(whatsapp_router)
 
     return app

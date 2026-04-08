@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.core.logging import bind_correlation_id, get_logger
 
-logger = get_logger(__name__)
+log = get_logger(module='core.middleware')
 
 
 class CorrelationIDMiddleware(BaseHTTPMiddleware):
@@ -22,8 +22,16 @@ class TimingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start = time.perf_counter()
         response = await call_next(request)
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        logger.info('http.request', path=request.url.path, method=request.method, elapsed_ms=elapsed_ms)
-        response.headers['X-Process-Time-Ms'] = f'{elapsed_ms:.2f}'
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        log.info(
+            'http.request',
+            action='http.request',
+            duration_ms=duration_ms,
+            metadata={
+                'path': request.url.path,
+                'method': request.method,
+                'status_code': response.status_code,
+            },
+        )
+        response.headers['X-Process-Time-Ms'] = str(duration_ms)
         return response
-
