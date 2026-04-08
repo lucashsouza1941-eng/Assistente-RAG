@@ -10,7 +10,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from src.config import Settings
 from src.core.logging import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(module='whatsapp.client')
 
 
 @dataclass(slots=True)
@@ -21,63 +21,30 @@ class MessageResponse:
 
 class MetaAPIClient:
     def __init__(self, settings: Settings) -> None:
-        self.settings = settings
-        self.base_url = f'https://graph.facebook.com/v20.0/{settings.whatsapp_phone_number_id}'
-        self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=30.0),
-            headers={
-                'Authorization': f'Bearer {settings.whatsapp_access_token}',
-                'Content-Type': 'application/json',
-            },
-        )
+        self.base = f'https://graph.facebook.com/v20.0/{settings.whatsapp_phone_number_id}'
+        self.client = httpx.AsyncClient(timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30), headers={'Authorization': f'Bearer {settings.whatsapp_access_token}'})
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
     async def send_text_message(self, to: str, text: str) -> MessageResponse:
-        payload = {
-            'messaging_product': 'whatsapp',
-            'to': to,
-            'type': 'text',
-            'text': {'body': text},
-        }
-        return await self._post_message(payload, to)
+        start = time.perf_counter()
+        r = await self.client.post(f'{self.base}/messages', json={'messaging_product': 'whatsapp', 'to': to, 'type': 'text', 'text': {'body': text}})
+        r.raise_for_status()
+        mid = r.json().get('messages', [{}])[0].get('id', '')
+        log.info('whatsapp.send_text', duration_ms=int((time.perf_counter()-start)*1000), metadata={'to_hash': hashlib.sha256(to.encode()).hexdigest(), 'message_id_returned': mid, 'status_code': r.status_code})
+        return MessageResponse(message_id=mid, status_code=r.status_code)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
     async def send_template_message(self, to: str, template_name: str, components: list) -> MessageResponse:
-        payload = {
-            'messaging_product': 'whatsapp',
-            'to': to,
-            'type': 'template',
-            'template': {
-                'name': template_name,
-                'language': {'code': 'pt_BR'},
-                'components': components,
-            },
-        }
-        return await self._post_message(payload, to)
+        start = time.perf_counter()
+        r = await self.client.post(f'{self.base}/messages', json={'messaging_product': 'whatsapp', 'to': to, 'type': 'template', 'template': {'name': template_name, 'language': {'code': 'pt_BR'}, 'components': components}})
+        r.raise_for_status()
+        mid = r.json().get('messages', [{}])[0].get('id', '')
+        log.info('whatsapp.send_template', duration_ms=int((time.perf_counter()-start)*1000), metadata={'to_hash': hashlib.sha256(to.encode()).hexdigest(), 'message_id_returned': mid, 'status_code': r.status_code})
+        return MessageResponse(message_id=mid, status_code=r.status_code)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
     async def mark_as_read(self, message_id: str) -> None:
         start = time.perf_counter()
-        response = await self._client.post(
-            f'{self.base_url}/messages',
-            json={
-                'messaging_product': 'whatsapp',
-                'status': 'read',
-                'message_id': message_id,
-            },
-        )
-        response.raise_for_status()
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        logger.info('meta.mark_as_read', message_id_returned=message_id, status_code=response.status_code, duration_ms=duration_ms)
-
-    async def _post_message(self, payload: dict, to: str) -> MessageResponse:
-        start = time.perf_counter()
-        response = await self._client.post(f'{self.base_url}/messages', json=payload)
-        response.raise_for_status()
-
-        body = response.json()
-        message_id = body.get('messages', [{}])[0].get('id', '')
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        to_hash = hashlib.sha256(to.encode('utf-8')).hexdigest()
-        logger.info('meta.send_message', to_hash=to_hash, message_id_returned=message_id, status_code=response.status_code, duration_ms=duration_ms)
-        return MessageResponse(message_id=message_id, status_code=response.status_code)
+        r = await self.client.post(f'{self.base}/messages', json={'messaging_product': 'whatsapp', 'status': 'read', 'message_id': message_id})
+        r.raise_for_status()
+        log.info('whatsapp.mark_read', duration_ms=int((time.perf_counter()-start)*1000), metadata={'message_id_returned': message_id, 'status_code': r.status_code})

@@ -27,11 +27,6 @@ class TimingMiddleware(BaseHTTPMiddleware):
             'http.request',
             action='http.request',
             duration_ms=duration_ms,
-            metadata={
-                'path': request.url.path,
-                'method': request.method,
-                'status_code': response.status_code,
-            },
+            metadata={'path': request.url.path, 'status_code': response.status_code, 'method': request.method},
         )
-        response.headers['X-Process-Time-Ms'] = str(duration_ms)
         return response

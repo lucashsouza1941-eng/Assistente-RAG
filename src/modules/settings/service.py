@@ -10,14 +10,13 @@ class SettingsService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_by_category(self, category: str) -> list[Setting]:
-        result = await self.db.execute(select(Setting).where(Setting.category == category).order_by(Setting.key.asc()))
-        return list(result.scalars().all())
+    async def get_category(self, category: str) -> list[Setting]:
+        return list((await self.db.execute(select(Setting).where(Setting.category == category))).scalars().all())
 
     async def update(self, key: str, value: dict) -> Setting:
         setting = await self.db.scalar(select(Setting).where(Setting.key == key))
         if setting is None:
-            setting = Setting(key=key, value=value, category='bot')
+            setting = Setting(key=key, category='bot', value=value)
             self.db.add(setting)
         else:
             setting.value = value

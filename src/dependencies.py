@@ -13,8 +13,8 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-engine: AsyncEngine = create_async_engine(settings.database_url, echo=settings.debug)
-SessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+engine: AsyncEngine = create_async_engine(settings.database_url, echo=False)
+SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -23,8 +23,8 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_redis() -> AsyncGenerator[Redis, None]:
-    client = Redis.from_url(settings.redis_url, decode_responses=True)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
-        yield client
+        yield redis
     finally:
-        await client.aclose()
+        await redis.aclose()

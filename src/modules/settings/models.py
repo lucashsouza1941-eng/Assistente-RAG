@@ -8,7 +8,7 @@ from src.db.base import Base
 
 
 class Setting(Base):
-    __tablename__ = "settings"
+    __tablename__ = 'settings'
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     key: Mapped[str] = mapped_column(String(100), unique=True)

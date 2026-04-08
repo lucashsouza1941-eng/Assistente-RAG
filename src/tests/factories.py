@@ -10,9 +10,9 @@ class DocumentFactory(factory.Factory):
     class Meta:
         model = Document
 
-    title = 'Protocolo de limpeza odontologica'
+    title = 'Guia de Procedimento'
     type = DocumentType.PROTOCOL
-    original_filename = 'protocolo.pdf'
+    original_filename = 'guia.pdf'
     content_hash = 'a' * 64
     status = DocumentStatus.INDEXED
     chunks_count = 3
@@ -22,11 +22,11 @@ class DocumentChunkFactory(factory.Factory):
     class Meta:
         model = DocumentChunk
 
-    content = 'Paciente deve realizar higiene bucal completa apos cada refeicao e usar fio dental diariamente.'
+    content = 'Paciente deve manter higiene bucal apos refeicoes e usar fio dental.'
     embedding = [0.1] * 1536
     chunk_index = 0
     metadata_ = {'page': 1, 'section': 'protocol'}
-    token_count = 25
+    token_count = 20
 
 
 class ConversationFactory(factory.Factory):
@@ -35,7 +35,6 @@ class ConversationFactory(factory.Factory):
 
     whatsapp_number_hash = 'b' * 64
     status = ConversationStatus.ACTIVE
-    message_count = 1
 
 
 class MessageFactory(factory.Factory):
@@ -43,4 +42,4 @@ class MessageFactory(factory.Factory):
         model = Message
 
     role = MessageRole.USER
-    content = 'Quais horarios estao disponiveis para limpeza odontologica?'
+    content = 'Qual o valor da limpeza odontologica?'

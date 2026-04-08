@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.dependencies import get_db_session, get_redis, get_settings
 from src.main import create_app
 
-TEST_DATABASE_URL = os.getenv('TEST_DATABASE_URL', 'postgresql+psycopg://postgres:postgres@localhost:5432/test_odontobot')
+TEST_DATABASE_URL = os.getenv('TEST_DATABASE_URL', 'postgresql+asyncpg://user:pass@localhost:5432/test_odontobot')
 TEST_REDIS_URL = os.getenv('TEST_REDIS_URL', 'redis://localhost:6380/0')
 
 
@@ -55,29 +55,28 @@ def mock_openai(monkeypatch):
 
 @pytest.fixture
 def mock_meta_api(monkeypatch):
-    class _DummyClient:
+    class _Client:
         async def send_text_message(self, to: str, text: str):
             return None
 
         async def mark_as_read(self, message_id: str):
             return None
 
-    monkeypatch.setattr('src.modules.whatsapp.service.MetaAPIClient', lambda settings: _DummyClient())
+    monkeypatch.setattr('src.modules.whatsapp.service.MetaAPIClient', lambda settings: _Client())
 
 
 @pytest_asyncio.fixture
 async def client(async_session: AsyncSession, redis_client: Redis, mock_openai, mock_meta_api) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
 
-    async def _get_db_override():
+    async def _db_override():
         yield async_session
 
-    async def _get_redis_override():
+    async def _redis_override():
         yield redis_client
 
-    app.dependency_overrides[get_db_session] = _get_db_override
-    app.dependency_overrides[get_redis] = _get_redis_override
-    app.dependency_overrides[get_settings] = lambda: get_settings()
+    app.dependency_overrides[get_db_session] = _db_override
+    app.dependency_overrides[get_redis] = _redis_override
 
     headers = {'X-API-Key': get_settings().api_key}
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test', headers=headers) as ac:

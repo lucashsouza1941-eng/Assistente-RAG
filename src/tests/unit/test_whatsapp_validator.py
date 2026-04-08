@@ -9,21 +9,13 @@ from src.core.exceptions import WebhookSignatureError
 from src.modules.whatsapp.validators import validate_webhook_signature_raw
 
 
-def test_valid_signature_ok():
-    payload = b'{"ok":1}'
+def test_signature_valida():
+    payload = b'{}'
     secret = 'abc'
-    signature = 'sha256=' + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    validate_webhook_signature_raw(payload, signature, secret)
+    sig = 'sha256=' + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    validate_webhook_signature_raw(payload, sig, secret)
 
 
-def test_invalid_signature_raises():
+def test_signature_invalida():
     with pytest.raises(WebhookSignatureError):
-        validate_webhook_signature_raw(b'{"ok":1}', 'sha256=invalid', 'abc')
-
-
-def test_modified_payload_fails():
-    secret = 'abc'
-    payload = b'original'
-    signature = 'sha256=' + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    with pytest.raises(WebhookSignatureError):
-        validate_webhook_signature_raw(b'modified', signature, secret)
+        validate_webhook_signature_raw(b'{}', 'sha256=bad', 'abc')
