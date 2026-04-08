@@ -48,3 +48,7 @@ class WebhookPayload(BaseModel):
                     self.message = c.value.messages[0]
                     return self
         return self
+
+
+class WebhookAckResponse(BaseModel):
+    message: str

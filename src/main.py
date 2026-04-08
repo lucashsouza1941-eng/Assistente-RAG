@@ -44,7 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(analytics_router)
     app.include_router(settings_router)
 
-    @app.get('/health')
+    @app.get('/health', status_code=200, responses={503: {'description': 'Dependencia indisponivel'}})
     async def health(db=Depends(get_db_session), redis=Depends(get_redis)) -> dict[str, str]:
         db_ok = redis_ok = vector_ok = False
         try:
@@ -63,15 +63,7 @@ def create_app() -> FastAPI:
             vector_ok = False
 
         if not (db_ok and redis_ok and vector_ok):
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    'status': 'unhealthy',
-                    'db': 'ok' if db_ok else 'down',
-                    'redis': 'ok' if redis_ok else 'down',
-                    'vector_store': 'ok' if vector_ok else 'down',
-                },
-            )
+            raise HTTPException(status_code=503, detail='Uma ou mais dependencias estao indisponiveis: db/redis/vector_store')
 
         return {'status': 'ok', 'db': 'ok', 'redis': 'ok', 'vector_store': 'ok'}
 

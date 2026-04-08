@@ -1,10 +1,18 @@
 ﻿from __future__ import annotations
 
+import enum
 from datetime import datetime
 
 from pydantic import BaseModel
 
 from src.modules.chat.models import ConversationStatus, MessageRole
+from src.schemas.pagination import Page
+
+
+class PeriodFilter(str, enum.Enum):
+    TODAY = 'today'
+    DAYS_7 = '7d'
+    DAYS_30 = '30d'
 
 
 class ChatRequest(BaseModel):
@@ -25,6 +33,10 @@ class ConversationResponse(BaseModel):
     id: str
     status: ConversationStatus
     started_at: datetime
+
+
+class ConversationPage(Page[ConversationResponse]):
+    pass
 
 
 class MessageResponse(BaseModel):

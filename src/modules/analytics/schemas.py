@@ -1,4 +1,6 @@
-﻿from pydantic import BaseModel
+﻿from __future__ import annotations
+
+from pydantic import BaseModel
 
 
 class KPIResponse(BaseModel):
@@ -7,3 +9,19 @@ class KPIResponse(BaseModel):
     avg_response_time_ms: float
     patients_served: int
     escalation_rate: float
+
+
+class VolumePoint(BaseModel):
+    timestamp: str
+    count: int
+
+
+class CategoryPoint(BaseModel):
+    category: str
+    count: int
+    percentage: float
+
+
+class QuestionCount(BaseModel):
+    question_preview: str
+    count: int

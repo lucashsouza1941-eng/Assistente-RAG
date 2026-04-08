@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from src.modules.knowledge.models import DocumentStatus, DocumentType
+from src.schemas.pagination import Page
 
 
 class DocumentCreateRequest(BaseModel):
@@ -23,6 +24,10 @@ class DocumentResponse(BaseModel):
     created_at: datetime
 
 
+class DocumentPage(Page[DocumentResponse]):
+    pass
+
+
 class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
@@ -35,3 +40,8 @@ class SearchResult(BaseModel):
     score: float
     document_title: str
     metadata: dict
+
+
+class ReindexResponse(BaseModel):
+    document_id: str
+    status: DocumentStatus
