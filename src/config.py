@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     clinic_name: str = Field(default='Clinica OdontoVida', alias='CLINIC_NAME')
     escalation_threshold: float = Field(default=0.70, alias='ESCALATION_THRESHOLD')
+    trust_proxy: bool = Field(default=False, alias='TRUST_PROXY')
     log_level: str = Field(default='INFO', alias='LOG_LEVEL')
     environment: str = Field(default='development', alias='ENVIRONMENT')
     service_name: str = Field(default='odontobot-api', alias='SERVICE_NAME')

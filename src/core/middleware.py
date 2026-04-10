@@ -5,9 +5,11 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from src.config import Settings
 from src.core.logging import bind_correlation_id, get_logger
 
 log = get_logger(module='core.middleware')
+settings = Settings()
 
 
 class CorrelationIDMiddleware(BaseHTTPMiddleware):
@@ -43,6 +45,15 @@ def _is_rate_limit_excluded(path: str) -> bool:
     return p in ('/health', '/whatsapp/webhook')
 
 
+def get_client_ip(request: Request) -> str:
+    # Confiar no X-Forwarded-For somente em ambiente atras de proxy confiavel.
+    forwarded_for = request.headers.get('X-Forwarded-For')
+    if forwarded_for and settings.trust_proxy:
+        return forwarded_for.split(',')[0].strip()
+    client = request.client
+    return client.host if client else 'unknown'
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Limite global: 100 req/min por IP (Redis). Exclui /health e /whatsapp/webhook."""
 
@@ -59,8 +70,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             log.warning('rate_limit_skipped', metadata={'reason': 'redis_client_missing'})
             return await call_next(request)
 
-        client = request.client
-        ip = client.host if client else 'unknown'
+        ip = get_client_ip(request)
         minute_window = int(time.time() // self.WINDOW_SEC)
         key = f'{self.KEY_PREFIX}:{ip}:{minute_window}'
 

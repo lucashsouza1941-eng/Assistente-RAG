@@ -25,12 +25,8 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-async def get_redis() -> AsyncGenerator[Redis, None]:
-    redis = Redis.from_url(settings.redis_url, decode_responses=True)
-    try:
-        yield redis
-    finally:
-        await redis.aclose()
+async def get_redis(request: Request) -> Redis:
+    return request.app.state.redis_client
 
 
 def get_meta_api_client(request: Request) -> MetaAPIClient:

@@ -77,7 +77,7 @@ async def client(async_session: AsyncSession, redis_client: Redis, mock_openai) 
         yield async_session
 
     async def _redis_override():
-        yield redis_client
+        return redis_client
 
     app.dependency_overrides[get_db_session] = _db_override
     app.dependency_overrides[get_redis] = _redis_override
