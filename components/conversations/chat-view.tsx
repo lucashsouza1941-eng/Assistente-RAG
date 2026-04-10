@@ -1,16 +1,18 @@
 "use client"
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ChevronDown, ChevronUp, User, FileText, Clock } from "lucide-react"
 import { useState } from "react"
-import type { Conversation, Message } from "@/app/conversations/page"
+import type { Conversation, Message } from "@/lib/types/conversations"
 
 interface ChatViewProps {
   conversation?: Conversation
   messages: Message[]
+  loading?: boolean
 }
 
 const statusConfig = {
@@ -129,7 +131,7 @@ function MessageBubble({ message }: { message: Message }) {
   )
 }
 
-export function ChatView({ conversation, messages }: ChatViewProps) {
+export function ChatView({ conversation, messages, loading = false }: ChatViewProps) {
   if (!conversation) {
     return (
       <Card className="bg-card border-border h-full flex items-center justify-center">
@@ -174,11 +176,19 @@ export function ChatView({ conversation, messages }: ChatViewProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto p-6">
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

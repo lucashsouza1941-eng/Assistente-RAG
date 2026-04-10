@@ -29,8 +29,8 @@ export function ConversationFilters({ filters, onFiltersChange }: FiltersProps) 
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="today">Hoje</SelectItem>
-          <SelectItem value="7days">7 dias</SelectItem>
-          <SelectItem value="30days">30 dias</SelectItem>
+          <SelectItem value="7d">7 dias</SelectItem>
+          <SelectItem value="30d">30 dias</SelectItem>
         </SelectContent>
       </Select>
 

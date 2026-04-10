@@ -1,9 +1,10 @@
-﻿from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import Depends, FastAPI, HTTPException
 from redis.asyncio import Redis
 from sqlalchemy import text
+from starlette.middleware.cors import CORSMiddleware
 
 from src.config import Settings
 from src.core.logging import bind_global_context, configure_logging
@@ -34,9 +35,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    settings = Settings()
     app = FastAPI(title='OdontoBot API', lifespan=lifespan)
     app.add_middleware(CorrelationIDMiddleware)
     app.add_middleware(TimingMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allow_headers=['*'],
+    )
 
     app.include_router(knowledge_router)
     app.include_router(chat_router)

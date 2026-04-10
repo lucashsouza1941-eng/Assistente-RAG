@@ -4,65 +4,30 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Eye, Trash2, Loader2 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { Eye, Trash2, Loader2, RefreshCw } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ApiRequestError, deleteDocument, fetchDocuments, reindexDocument, type DocumentResponse } from "@/lib/api-client"
+import { toast } from "sonner"
 
-type DocumentType = "procedure" | "faq" | "protocol" | "pricing"
-type DocumentStatus = "indexed" | "processing" | "error"
+type DocumentTypeUi = "procedure" | "faq" | "protocol" | "general"
 
-interface Document {
-  id: string
-  name: string
-  type: DocumentType
-  chunks: number
-  status: DocumentStatus
-  updatedAt: string
+function mapType(t: string): DocumentTypeUi {
+  const x = t.toUpperCase()
+  if (x === "PROCEDURE") return "procedure"
+  if (x === "FAQ") return "faq"
+  if (x === "PROTOCOL") return "protocol"
+  return "general"
 }
 
-const documents: Document[] = [
-  {
-    id: "1",
-    name: "Tabela de Procedimentos 2024.pdf",
-    type: "procedure",
-    chunks: 45,
-    status: "indexed",
-    updatedAt: "15 Mar 2024",
-  },
-  {
-    id: "2",
-    name: "FAQ Convênios.docx",
-    type: "faq",
-    chunks: 28,
-    status: "indexed",
-    updatedAt: "12 Mar 2024",
-  },
-  {
-    id: "3",
-    name: "Protocolo Pós-Operatório.pdf",
-    type: "protocol",
-    chunks: 32,
-    status: "processing",
-    updatedAt: "10 Mar 2024",
-  },
-  {
-    id: "4",
-    name: "Preços Particulares.xlsx",
-    type: "pricing",
-    chunks: 18,
-    status: "indexed",
-    updatedAt: "08 Mar 2024",
-  },
-  {
-    id: "5",
-    name: "Perguntas Frequentes.txt",
-    type: "faq",
-    chunks: 0,
-    status: "error",
-    updatedAt: "05 Mar 2024",
-  },
-]
+function mapStatus(s: string): "indexed" | "processing" | "error" | "pending" {
+  const x = s.toUpperCase()
+  if (x === "INDEXED") return "indexed"
+  if (x === "PROCESSING" || x === "PENDING") return "processing"
+  if (x === "ERROR") return "error"
+  return "pending"
+}
 
-const typeConfig: Record<DocumentType, { label: string; className: string }> = {
+const typeConfig: Record<DocumentTypeUi, { label: string; className: string }> = {
   procedure: {
     label: "Procedimento",
     className: "bg-primary/10 text-primary border-primary/20",
@@ -75,19 +40,24 @@ const typeConfig: Record<DocumentType, { label: string; className: string }> = {
     label: "Protocolo",
     className: "bg-purple-100 text-purple-700 border-purple-200",
   },
-  pricing: {
-    label: "Preços",
+  general: {
+    label: "Geral",
     className: "bg-amber-100 text-amber-700 border-amber-200",
   },
 }
 
-const statusConfig: Record<DocumentStatus, { label: string; className: string; icon?: React.ReactNode }> = {
+const statusConfig = {
   indexed: {
     label: "Indexado",
     className: "bg-primary/10 text-primary border-primary/20",
   },
   processing: {
     label: "Processando",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    icon: <Loader2 className="h-3 w-3 animate-spin" />,
+  },
+  pending: {
+    label: "Pendente",
     className: "bg-yellow-100 text-yellow-700 border-yellow-200",
     icon: <Loader2 className="h-3 w-3 animate-spin" />,
   },
@@ -114,17 +84,73 @@ function TableSkeleton() {
   )
 }
 
-export function DocumentsTable() {
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+  } catch {
+    return iso
+  }
+}
+
+export function DocumentsTable({ onRefresh }: { onRefresh?: () => void }) {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [documents, setDocuments] = useState<DocumentResponse[]>([])
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const page = await fetchDocuments(1, 100)
+      setDocuments(page.items)
+    } catch (e) {
+      setError(e instanceof ApiRequestError ? e.message : "Erro ao listar documentos")
+      setDocuments([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(timer)
-  }, [])
+    void load()
+  }, [load])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Excluir este documento?")) return
+    setBusyId(id)
+    try {
+      await deleteDocument(id)
+      toast.success("Documento removido")
+      await load()
+      onRefresh?.()
+    } catch (e) {
+      toast.error(e instanceof ApiRequestError ? e.message : "Falha ao excluir")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleReindex = async (id: string) => {
+    setBusyId(id)
+    try {
+      await reindexDocument(id)
+      toast.success("Reindexacao enfileirada")
+      await load()
+      onRefresh?.()
+    } catch (e) {
+      toast.error(e instanceof ApiRequestError ? e.message : "Falha ao reindexar")
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   return (
     <Card className="bg-card border-border overflow-hidden">
       <CardContent className="p-0">
+        {error && (
+          <p className="text-sm text-destructive p-4 border-b border-border">{error}</p>
+        )}
         {loading ? (
           <TableSkeleton />
         ) : (
@@ -132,67 +158,70 @@ export function DocumentsTable() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                    Nome do Arquivo
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                    Tipo
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                    Chunks
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                    Status
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
-                    Última Atualização
-                  </th>
-                  <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">
-                    Ações
-                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Titulo</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Tipo</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Chunks</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Criado</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Acoes</th>
                 </tr>
               </thead>
               <tbody>
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-foreground">
-                        {doc.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={typeConfig[doc.type].className}>
-                        {typeConfig[doc.type].label}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-muted-foreground">
-                        {doc.chunks}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={`flex items-center gap-1 w-fit ${statusConfig[doc.status].className}`}>
-                        {statusConfig[doc.status].icon}
-                        {statusConfig[doc.status].label}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-muted-foreground">
-                        {doc.updatedAt}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {documents.map((doc) => {
+                  const tu = mapType(doc.type)
+                  const su = mapStatus(doc.status)
+                  const sc = statusConfig[su as keyof typeof statusConfig] ?? statusConfig.processing
+                  return (
+                    <tr key={doc.id} className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-medium text-foreground">{doc.title}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={typeConfig[tu].className}>
+                          {typeConfig[tu].label}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted-foreground">{doc.chunks_count}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={`flex items-center gap-1 w-fit ${sc.className}`}>
+                          {"icon" in sc ? sc.icon : null}
+                          {sc.label}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-muted-foreground">{formatDate(doc.created_at)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Reindexar"
+                            disabled={busyId === doc.id}
+                            onClick={() => void handleReindex(doc.id)}
+                          >
+                            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" disabled title="Visualizar em breve">
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            disabled={busyId === doc.id}
+                            onClick={() => void handleDelete(doc.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
