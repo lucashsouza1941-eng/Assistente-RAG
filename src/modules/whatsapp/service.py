@@ -1,6 +1,7 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import hashlib
+from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -18,18 +19,20 @@ log = get_logger(module='whatsapp.service')
 
 
 class WhatsAppService:
-    def __init__(self, db: AsyncSession, redis: Redis, settings: Settings) -> None:
+    def __init__(self, db: AsyncSession, redis: Redis, settings: Settings, meta_client: MetaAPIClient) -> None:
         self.db = db
         self.redis = redis
         self.settings = settings
-        self.client = MetaAPIClient(settings)
+        self.meta_client = meta_client
 
     async def handle_message(self, message: WebhookMessage) -> None:
+        conversation_id: UUID | None = None
         try:
             number_hash = hashlib.sha256(f'{message.from_}{self.settings.hash_salt}'.encode()).hexdigest()
             if not await self._allow(number_hash):
                 return
             conv = await self._conversation(number_hash)
+            conversation_id = conv.id
             text = message.text.body if message.text else ''
             self.db.add(Message(conversation_id=conv.id, role=MessageRole.USER, content=text))
             retriever = RetrieverService(self.db, self.redis, self.settings)
@@ -39,11 +42,18 @@ class WhatsAppService:
             if response.escalated:
                 conv.status = ConversationStatus.ESCALATED
             await self.db.commit()
-            await self.client.send_text_message(message.from_, response.content)
-            await self.client.mark_as_read(message.id)
+            await self.meta_client.send_text_message(message.from_, response.content)
+            await self.meta_client.mark_as_read(message.id)
             log.info('whatsapp.handled', metadata={'number_hash': number_hash, 'message_preview': sanitize_message(text)})
-        except Exception:
+        except Exception as exc:
+            log.error(
+                'whatsapp_message_handling_failed',
+                error_type=type(exc).__name__,
+                error_message=str(exc)[:200],
+                conversation_id=str(conversation_id) if conversation_id else None,
+            )
             await self.db.rollback()
+            raise
 
     async def _allow(self, number_hash: str) -> bool:
         key = f'rate:{number_hash}'

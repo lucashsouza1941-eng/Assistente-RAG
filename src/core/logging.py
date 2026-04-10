@@ -1,10 +1,40 @@
-﻿import logging
+import logging
 import sys
 import uuid
 
 import structlog
 
 REQUIRED_FIELDS = ('timestamp', 'level', 'correlation_id', 'module', 'action', 'duration_ms', 'metadata')
+
+_SENSITIVE_NAME_SUBSTRINGS = ('api_key', 'token', 'secret', 'password', 'authorization', 'x-api-key')
+_REDACTED = '***REDACTED***'
+
+
+def _field_name_is_sensitive(name: str) -> bool:
+    lower = str(name).lower()
+    return any(sub in lower for sub in _SENSITIVE_NAME_SUBSTRINGS)
+
+
+def _sanitize_nested(obj: object) -> object:
+    if isinstance(obj, dict):
+        out: dict = {}
+        for k, v in obj.items():
+            if _field_name_is_sensitive(str(k)):
+                out[k] = _REDACTED
+            elif isinstance(v, dict):
+                out[k] = _sanitize_nested(v)
+            elif isinstance(v, list):
+                out[k] = [_sanitize_nested(i) for i in v]
+            else:
+                out[k] = v
+        return out
+    if isinstance(obj, list):
+        return [_sanitize_nested(i) for i in obj]
+    return obj
+
+
+def sanitize_sensitive_fields(_logger, _name, event_dict):
+    return _sanitize_nested(event_dict)
 
 
 def _normalize(_logger, _name, event_dict):
@@ -38,6 +68,7 @@ def configure_logging(level: str = 'INFO') -> None:
             structlog.stdlib.add_log_level,
             structlog.processors.StackInfoRenderer(),
             _normalize,
+            sanitize_sensitive_fields,
             structlog.processors.JSONRenderer(),
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),

@@ -8,7 +8,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from src.config import Settings
 from src.core.logging import bind_global_context, configure_logging
-from src.core.middleware import CorrelationIDMiddleware, TimingMiddleware
+from src.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware, TimingMiddleware
 from src.dependencies import engine, get_db_session, get_redis
 from src.modules.analytics.router import router as analytics_router
 from src.modules.chat.router import router as chat_router
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await app.state.redis_client.aclose()
-        await app.state.meta_api_client.client.aclose()
+        await app.state.meta_api_client.aclose()
         await engine.dispose()
 
 
@@ -46,6 +46,7 @@ def create_app() -> FastAPI:
         allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allow_headers=['*'],
     )
+    app.add_middleware(RateLimitMiddleware)
 
     app.include_router(knowledge_router)
     app.include_router(chat_router)

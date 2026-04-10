@@ -1,10 +1,12 @@
-﻿from functools import lru_cache
+from functools import lru_cache
 from typing import AsyncGenerator
 
+from fastapi import Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config import Settings
+from src.modules.whatsapp.client import MetaAPIClient
 
 
 @lru_cache
@@ -28,3 +30,7 @@ async def get_redis() -> AsyncGenerator[Redis, None]:
         yield redis
     finally:
         await redis.aclose()
+
+
+def get_meta_api_client(request: Request) -> MetaAPIClient:
+    return request.app.state.meta_api_client

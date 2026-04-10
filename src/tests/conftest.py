@@ -56,21 +56,22 @@ def mock_openai(monkeypatch):
     monkeypatch.setattr('src.modules.knowledge.indexer.AsyncOpenAI', lambda api_key: _OpenAI())
 
 
-@pytest.fixture
-def mock_meta_api(monkeypatch):
-    class _Client:
-        async def send_text_message(self, to: str, text: str):
-            return None
+class _MetaAPIStub:
+    async def aclose(self) -> None:
+        return None
 
-        async def mark_as_read(self, message_id: str):
-            return None
+    async def send_text_message(self, to: str, text: str):
+        return None
 
-    monkeypatch.setattr('src.modules.whatsapp.service.MetaAPIClient', lambda settings: _Client())
+    async def mark_as_read(self, message_id: str):
+        return None
 
 
 @pytest_asyncio.fixture
-async def client(async_session: AsyncSession, redis_client: Redis, mock_openai, mock_meta_api) -> AsyncGenerator[AsyncClient, None]:
+async def client(async_session: AsyncSession, redis_client: Redis, mock_openai) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
+    app.state.redis_client = redis_client
+    app.state.meta_api_client = _MetaAPIStub()
 
     async def _db_override():
         yield async_session

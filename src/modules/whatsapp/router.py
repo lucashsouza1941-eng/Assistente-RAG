@@ -1,11 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.dependencies import get_db_session, get_redis, get_settings
+from src.dependencies import get_db_session, get_meta_api_client, get_redis, get_settings
+from src.modules.whatsapp.client import MetaAPIClient
 from src.modules.whatsapp.schemas import WebhookAckResponse, WebhookPayload
 from src.modules.whatsapp.service import WhatsAppService
 from src.modules.whatsapp.validators import validate_webhook_signature
@@ -21,8 +22,15 @@ async def verify(hub_mode: str = Query(alias='hub.mode'), hub_verify_token: str 
 
 
 @router.post('/webhook', response_model=WebhookAckResponse, status_code=status.HTTP_200_OK, dependencies=[Depends(validate_webhook_signature)], responses={403: {'description': 'Assinatura invalida'}, 422: {'description': 'Validacao falhou'}})
-async def webhook(request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db_session), redis: Redis = Depends(get_redis), settings=Depends(get_settings)) -> WebhookAckResponse:
+async def webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
+    settings=Depends(get_settings),
+    meta_client: MetaAPIClient = Depends(get_meta_api_client),
+) -> WebhookAckResponse:
     payload = WebhookPayload.model_validate_json((await request.body()).decode('utf-8'))
     if payload.message and payload.message.type == 'text' and payload.message.text:
-        background_tasks.add_task(WhatsAppService(db, redis, settings).handle_message, payload.message)
+        background_tasks.add_task(WhatsAppService(db, redis, settings, meta_client).handle_message, payload.message)
     return WebhookAckResponse(message='ok')
