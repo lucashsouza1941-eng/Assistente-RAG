@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from uuid import UUID
 
@@ -39,7 +39,7 @@ class DocumentService:
         await self.db.commit()
 
     async def index(self, document_id: UUID, settings: Settings) -> DocumentStatus:
-        return await IndexingService(self.db, settings).index_document(document_id)
+        return await IndexingService().index_document(document_id, settings)
 
     async def search(self, query: str, top_k: int, threshold: float, redis: Redis, settings: Settings):
         return await RetrieverService(self.db, redis, settings).search(query, top_k, threshold)

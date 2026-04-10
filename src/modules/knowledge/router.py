@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -9,7 +9,8 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import require_api_key
-from src.dependencies import SessionLocal, get_db_session, get_redis, get_settings
+from src.dependencies import get_db_session, get_redis, get_settings
+from src.modules.knowledge.indexer import IndexingService
 from src.modules.knowledge.schemas import DocumentCreateRequest, DocumentPage, DocumentResponse, ReindexResponse, SearchRequest, SearchResult
 from src.modules.knowledge.service import DocumentService
 
@@ -43,11 +44,7 @@ async def create_document(background_tasks: BackgroundTasks, title: str = Form(.
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    async def _index_task(doc_id: UUID) -> None:
-        async with SessionLocal() as session:
-            await DocumentService(session).index(doc_id, settings)
-
-    background_tasks.add_task(_index_task, doc.id)
+    background_tasks.add_task(IndexingService().index_document, doc.id, settings)
     return DocumentResponse(id=str(doc.id), title=doc.title, type=doc.type, status=doc.status, chunks_count=doc.chunks_count, created_at=doc.created_at)
 
 

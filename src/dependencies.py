@@ -16,11 +16,11 @@ def get_settings() -> Settings:
 
 settings = get_settings()
 engine: AsyncEngine = create_async_engine(settings.database_url, echo=False)
-SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    async with SessionLocal() as session:
+    async with AsyncSessionLocal() as session:
         yield session
 
 
