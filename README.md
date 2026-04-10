@@ -73,12 +73,14 @@ curl http://localhost:8000/health
 
 Neste repositorio o painel Next.js fica na **raiz** (pastas `app/`, `components/`), nao em uma subpasta `frontend`.
 
+Copie `.env.local.example` para **`.env.local`** e preencha `API_URL`, `API_KEY` (mesma chave do backend), `ADMIN_PASSWORD` (hash bcrypt da senha do painel), `NEXTAUTH_SECRET` e `NEXTAUTH_URL` (ex.: `http://localhost:3000`).
+
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Acesse o painel em **<http://localhost:3000>**.
+Acesse **<http://localhost:3000/login>**, informe a senha do painel e use o dashboard (a API e chamada via `/api/proxy` no servidor; a chave nao vai para o browser).
 
 ## Documentacao da API
 

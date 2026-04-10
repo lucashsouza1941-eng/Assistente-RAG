@@ -11,7 +11,9 @@ import {
   Menu,
   X,
   Bell,
+  LogOut,
 } from "lucide-react"
+import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -133,23 +135,31 @@ export function AdminSidebar() {
         </nav>
 
         {/* User section */}
-        <div className="px-4 py-4 border-t border-border">
+        <div className="px-4 py-4 border-t border-border space-y-2">
           <div className="flex items-center gap-3 px-2">
             <Avatar className="h-9 w-9">
               <AvatarImage src="/placeholder-user.jpg" alt="Admin" />
               <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                DR
+                AD
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">
-                Dr. Ricardo
+                Admin
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                Administrador
+                Painel OdontoBot
               </p>
             </div>
           </div>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2 text-muted-foreground"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
         </div>
       </aside>
     </>
@@ -186,6 +196,15 @@ export function AdminTopbar() {
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5 text-muted-foreground" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden text-muted-foreground"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            aria-label="Sair"
+          >
+            <LogOut className="h-5 w-5" />
           </Button>
           <Avatar className="h-8 w-8 lg:hidden">
             <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">

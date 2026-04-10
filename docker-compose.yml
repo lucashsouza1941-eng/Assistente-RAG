@@ -15,14 +15,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:8000
-        NEXT_PUBLIC_API_KEY: ${API_KEY:-}
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_API_KEY=${API_KEY}
+      - API_URL=http://app:8000
+      - API_KEY=${API_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-use-a-long-random-secret-32chars}
+      - NEXTAUTH_URL=http://localhost:3000
     depends_on:
       - app
 

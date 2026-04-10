@@ -1,5 +1,10 @@
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-export const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? ""
+/** Rotas da API FastAPI via proxy server-side (/api/proxy/*). Sem chave no bundle. */
+const PROXY_BASE = "/api/proxy"
+
+function toProxyPath(backendPath: string): string {
+  const p = backendPath.startsWith("/") ? backendPath.slice(1) : backendPath
+  return `${PROXY_BASE}/${p}`
+}
 
 export class ApiRequestError extends Error {
   constructor(
@@ -12,7 +17,8 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+export async function apiFetch(backendPath: string, options: RequestInit = {}): Promise<Response> {
+  const url = toProxyPath(backendPath)
   const headers = new Headers(options.headers)
   if (
     !(options.body instanceof FormData) &&
@@ -21,12 +27,10 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   ) {
     headers.set("Content-Type", "application/json")
   }
-  if (API_KEY) {
-    headers.set("X-API-Key", API_KEY)
-  }
-  return fetch(`${BASE_URL.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`, {
+  return fetch(url, {
     ...options,
     headers,
+    credentials: "include",
   })
 }
 

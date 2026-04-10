@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { DM_Sans, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/sonner'
+import { Providers } from '@/components/providers'
 import './globals.css'
 
 const dmSans = DM_Sans({ 
@@ -29,8 +30,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${dmSans.variable} ${inter.variable} font-sans antialiased`}>
-        {children}
-        <Toaster />
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

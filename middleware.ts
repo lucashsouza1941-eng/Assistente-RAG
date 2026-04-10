@@ -1,0 +1,12 @@
+import { withAuth } from "next-auth/middleware"
+
+export default withAuth({
+  pages: { signIn: "/login" },
+})
+
+export const config = {
+  matcher: [
+    "/",
+    "/((?!_next/static|_next/image|favicon.ico|login|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
+}
