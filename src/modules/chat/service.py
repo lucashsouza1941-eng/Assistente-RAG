@@ -11,7 +11,6 @@ from src.config import Settings
 from src.modules.chat.models import Conversation, Message, MessageRole
 from src.modules.chat.rag_chain import RAGChain
 from src.modules.chat.schemas import PeriodFilter
-from src.modules.knowledge.retriever import RetrieverService
 
 
 class ConversationService:
@@ -23,8 +22,8 @@ class ConversationService:
     async def send(self, message: str, conversation_id: UUID | None):
         conversation = await self._get_or_create(conversation_id)
         self.db.add(Message(conversation_id=conversation.id, role=MessageRole.USER, content=message))
-        retriever = RetrieverService(self.db, self.redis, self.settings)
-        response = await RAGChain(self.db, retriever, self.settings).generate(message, conversation.id)
+        rag = await RAGChain.from_settings(self.db, self.settings)
+        response = await rag.generate(message, conversation.id)
         self.db.add(Message(conversation_id=conversation.id, role=MessageRole.ASSISTANT, content=response.content, sources_used=response.sources, confidence=response.confidence, response_time_ms=response.response_time_ms))
         await self.db.commit()
         return conversation, response

@@ -9,11 +9,12 @@ from starlette.middleware.cors import CORSMiddleware
 from src.config import Settings
 from src.core.logging import bind_global_context, configure_logging
 from src.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware, TimingMiddleware
-from src.dependencies import engine, get_db_session, get_redis
+from src.dependencies import AsyncSessionLocal, engine, get_db_session, get_redis
 from src.modules.analytics.router import router as analytics_router
 from src.modules.chat.router import router as chat_router
 from src.modules.knowledge.router import router as knowledge_router
 from src.modules.settings.router import router as settings_router
+from src.modules.settings.service import SettingsService
 from src.modules.whatsapp.client import MetaAPIClient
 from src.modules.whatsapp.router import router as whatsapp_router
 
@@ -26,6 +27,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
     app.state.meta_api_client = MetaAPIClient(settings)
+    async with AsyncSessionLocal() as db:
+        svc = SettingsService(db)
+        await svc.seed_defaults(settings)
+        await db.commit()
     try:
         yield
     finally:

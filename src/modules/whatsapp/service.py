@@ -12,7 +12,6 @@ from src.core.logging import get_logger, sanitize_message
 from src.dependencies import AsyncSessionLocal
 from src.modules.chat.models import Conversation, ConversationStatus, Message, MessageRole
 from src.modules.chat.rag_chain import RAGChain
-from src.modules.knowledge.retriever import RetrieverService
 from src.modules.whatsapp.client import MetaAPIClient
 from src.modules.whatsapp.schemas import WebhookMessage
 
@@ -35,8 +34,7 @@ class WhatsAppService:
                     conversation_id = conv.id
                     text = message.text.body if message.text else ''
                     db.add(Message(conversation_id=conv.id, role=MessageRole.USER, content=text))
-                    retriever = RetrieverService(db, redis, settings)
-                    rag = RAGChain(db, retriever, settings)
+                    rag = await RAGChain.from_settings(db, settings)
                     response = await rag.generate(text, conv.id)
                     db.add(
                         Message(
