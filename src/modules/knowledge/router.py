@@ -4,13 +4,13 @@ import json
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
+from arq.connections import ArqRedis
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import require_api_key
-from src.dependencies import get_db_session, get_redis, get_settings
-from src.modules.knowledge.indexer import IndexingService
+from src.dependencies import get_arq_redis, get_db_session, get_redis, get_settings
 from src.modules.knowledge.schemas import DocumentCreateRequest, DocumentPage, DocumentResponse, ReindexResponse, SearchRequest, SearchResult
 from src.modules.knowledge.service import DocumentService
 
@@ -24,7 +24,14 @@ router = APIRouter(prefix='/knowledge', tags=['knowledge'], dependencies=[Depend
 
 
 @router.post('/documents', response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED, responses={**COMMON_AUTH_RESPONSES, 409: {'description': 'Conflito: documento duplicado'}})
-async def create_document(background_tasks: BackgroundTasks, title: str = Form(...), type: str = Form(...), content_hash: str = Form(...), file: UploadFile = File(...), db: AsyncSession = Depends(get_db_session), settings=Depends(get_settings)) -> DocumentResponse:
+async def create_document(
+    title: str = Form(...),
+    type: str = Form(...),
+    content_hash: str = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db_session),
+    arq_redis: ArqRedis = Depends(get_arq_redis),
+) -> DocumentResponse:
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=422, detail='Arquivo excede 10MB')
@@ -44,7 +51,7 @@ async def create_document(background_tasks: BackgroundTasks, title: str = Form(.
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    background_tasks.add_task(IndexingService().index_document, doc.id, settings)
+    await arq_redis.enqueue_job('index_document', str(doc.id))
     return DocumentResponse(id=str(doc.id), title=doc.title, type=doc.type, status=doc.status, chunks_count=doc.chunks_count, created_at=doc.created_at)
 
 

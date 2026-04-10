@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import AsyncGenerator
 
+from arq.connections import ArqRedis, RedisSettings, create_pool
 from fastapi import Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -34,3 +35,11 @@ async def get_redis() -> AsyncGenerator[Redis, None]:
 
 def get_meta_api_client(request: Request) -> MetaAPIClient:
     return request.app.state.meta_api_client
+
+
+async def get_arq_redis() -> AsyncGenerator[ArqRedis, None]:
+    pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    try:
+        yield pool
+    finally:
+        await pool.close()

@@ -11,6 +11,28 @@ services:
     ports:
       - "8000:8000"
 
+  worker:
+    build: .
+    command: uv run arq src.workers.indexing_worker.WorkerSettings
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cleanup-worker:
+    build: .
+    command: uv run arq src.workers.cleanup_worker.CleanupWorkerSettings
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   frontend:
     build:
       context: .
