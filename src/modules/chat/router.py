@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from uuid import UUID
 
@@ -36,7 +36,8 @@ async def conversations(page: int = Query(default=1, ge=1), size: int = Query(de
 @router.get('/conversations/{conversation_id}/messages', response_model=list[MessageResponse], status_code=status.HTTP_200_OK, responses={**COMMON_AUTH_RESPONSES, 404: {'description': 'Recurso nao encontrado'}})
 async def messages(conversation_id: UUID, db: AsyncSession = Depends(get_db_session), redis: Redis = Depends(get_redis), settings=Depends(get_settings)) -> list[MessageResponse]:
     svc = ConversationService(db, redis, settings)
-    items = await svc.list_messages(conversation_id)
-    if not items:
-        raise HTTPException(status_code=404, detail='Conversa nao encontrada ou sem mensagens')
+    try:
+        items = await svc.list_messages(conversation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return [MessageResponse(id=str(m.id), role=m.role, content=m.content, created_at=m.created_at) for m in items]

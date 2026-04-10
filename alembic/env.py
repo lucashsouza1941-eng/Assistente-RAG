@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -19,8 +20,18 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _database_url() -> str:
+    env_url = os.environ.get('DATABASE_URL', '').strip()
+    if env_url:
+        return env_url
+    ini_url = config.get_main_option('sqlalchemy.url')
+    if ini_url:
+        return ini_url
+    raise RuntimeError('Defina DATABASE_URL ou sqlalchemy.url em alembic.ini')
+
+
 def run_migrations_offline() -> None:
-    context.configure(url=config.get_main_option('sqlalchemy.url'), target_metadata=target_metadata, literal_binds=True)
+    context.configure(url=_database_url(), target_metadata=target_metadata, literal_binds=True)
     with context.begin_transaction():
         context.run_migrations()
 
@@ -32,7 +43,9 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    connectable = async_engine_from_config(config.get_section(config.config_ini_section, {}), prefix='sqlalchemy.', poolclass=pool.NullPool)
+    ini_section = dict(config.get_section(config.config_ini_section, {}) or {})
+    ini_section['sqlalchemy.url'] = _database_url()
+    connectable = async_engine_from_config(ini_section, prefix='sqlalchemy.', poolclass=pool.NullPool)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

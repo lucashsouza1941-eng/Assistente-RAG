@@ -1,7 +1,8 @@
 {
-  "name": "my-project",
+  "name": "odontobot-panel",
   "version": "0.1.0",
   "private": true,
+  "description": "Painel administrativo do OdontoBot",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

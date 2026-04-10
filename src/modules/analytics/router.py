@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,15 +25,15 @@ async def kpis(db: AsyncSession = Depends(get_db_session)) -> KPIResponse:
 
 
 @router.get('/volume', response_model=list[VolumePoint], status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
-async def volume(granularity: str = Query(default='day'), db: AsyncSession = Depends(get_db_session)) -> list[VolumePoint]:
-    return [VolumePoint(timestamp='n/a', count=0)]
+async def volume(granularity: Literal['hour', 'day'] = Query(default='day'), db: AsyncSession = Depends(get_db_session)) -> list[VolumePoint]:
+    return await AnalyticsService(db).volume(granularity)
 
 
 @router.get('/categories', response_model=list[CategoryPoint], status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
 async def categories(db: AsyncSession = Depends(get_db_session)) -> list[CategoryPoint]:
-    return [CategoryPoint(category='outros', count=0, percentage=0.0)]
+    return await AnalyticsService(db).categories()
 
 
 @router.get('/top-questions', response_model=list[QuestionCount], status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
 async def top_questions(limit: int = Query(default=10, ge=1, le=100), db: AsyncSession = Depends(get_db_session)) -> list[QuestionCount]:
-    return [QuestionCount(question_preview='Sem dados', count=0)]
+    return await AnalyticsService(db).top_questions(limit)
