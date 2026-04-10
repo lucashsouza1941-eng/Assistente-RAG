@@ -36,14 +36,18 @@ class AnalyticsService:
                 ORDER BY bucket
             """)
         rows = (await self.db.execute(q)).mappings().all()
+        if granularity == 'hour':
+            counts: dict[int, int] = {}
+            for row in rows:
+                counts[int(row['bucket'])] = int(row['cnt'])
+            return [
+                VolumePoint(timestamp=f'{h:02d}:00', count=counts.get(h, 0)) for h in range(24)
+            ]
         out: list[VolumePoint] = []
         for row in rows:
             b = row['bucket']
             cnt = row['cnt']
-            if granularity == 'hour':
-                ts = f'{int(b):02d}:00'
-            else:
-                ts = str(b)
+            ts = str(b)
             out.append(VolumePoint(timestamp=ts, count=cnt))
         return out
 

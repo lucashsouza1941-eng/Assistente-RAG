@@ -1,6 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import require_api_key
@@ -16,9 +16,13 @@ COMMON_AUTH_RESPONSES = {
 
 router = APIRouter(prefix='/settings', tags=['settings'], dependencies=[Depends(require_api_key)])
 
+_VALID_CATEGORIES = frozenset({'bot', 'ai', 'whatsapp', 'notifications'})
+
 
 @router.get('/{category}', response_model=list[SettingResponse], status_code=status.HTTP_200_OK, responses={**COMMON_AUTH_RESPONSES, 404: {'description': 'Recurso nao encontrado'}})
-async def category(category: str = Path(pattern='^(bot|ai|whatsapp|notifications)$'), db: AsyncSession = Depends(get_db_session)) -> list[SettingResponse]:
+async def category(category: str, db: AsyncSession = Depends(get_db_session)) -> list[SettingResponse]:
+    if category not in _VALID_CATEGORIES:
+        raise HTTPException(status_code=404, detail=f'Categoria invalida: {category}')
     items = await SettingsService(db).get_category(category)
     if not items:
         raise HTTPException(status_code=404, detail=f'Nenhuma configuracao encontrada para a categoria {category}')
@@ -27,5 +31,8 @@ async def category(category: str = Path(pattern='^(bot|ai|whatsapp|notifications
 
 @router.put('/{key}', response_model=SettingResponse, status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
 async def update(key: str, payload: SettingUpdate, db: AsyncSession = Depends(get_db_session)) -> SettingResponse:
-    s = await SettingsService(db).update(key, payload.value)
+    try:
+        s = await SettingsService(db).update(key, payload.value)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return SettingResponse(id=s.id, key=s.key, value=s.value, category=s.category)

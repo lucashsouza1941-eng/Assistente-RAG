@@ -13,6 +13,18 @@ _PANEL_KEY_CATEGORY: dict[str, str] = {
     'panel_notifications': 'notifications',
 }
 
+_VALID_CATEGORY_PREFIXES = frozenset({'bot', 'ai', 'whatsapp', 'notifications'})
+
+
+def _category_for_new_key(key: str) -> str:
+    if key in _PANEL_KEY_CATEGORY:
+        return _PANEL_KEY_CATEGORY[key]
+    if '.' in key:
+        prefix, _ = key.split('.', 1)
+        if prefix in _VALID_CATEGORY_PREFIXES:
+            return prefix
+    raise ValueError(f'Chave de configuracao nao permitida: {key}')
+
 
 class SettingsService:
     def __init__(self, db: AsyncSession) -> None:
@@ -24,7 +36,7 @@ class SettingsService:
     async def update(self, key: str, value: dict) -> Setting:
         setting = await self.db.scalar(select(Setting).where(Setting.key == key))
         if setting is None:
-            category = _PANEL_KEY_CATEGORY.get(key, 'bot')
+            category = _category_for_new_key(key)
             setting = Setting(key=key, category=category, value=value)
             self.db.add(setting)
         else:
