@@ -1,4 +1,4 @@
-﻿services:
+services:
   app:
     build: .
     depends_on:
@@ -10,6 +10,21 @@
       - .env
     ports:
       - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_API_KEY: ${API_KEY:-}
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_KEY=${API_KEY}
+    depends_on:
+      - app
 
   postgres:
     image: ankane/pgvector:v0.5.1

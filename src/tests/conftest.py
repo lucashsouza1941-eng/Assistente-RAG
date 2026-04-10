@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
@@ -12,7 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.dependencies import get_db_session, get_redis, get_settings
 from src.main import create_app
 
-TEST_DATABASE_URL = os.getenv('TEST_DATABASE_URL', 'postgresql+asyncpg://user:pass@localhost:5432/test_odontobot')
+TEST_DATABASE_URL = os.getenv(
+    'TEST_DATABASE_URL',
+    'postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot',
+)
 TEST_REDIS_URL = os.getenv('TEST_REDIS_URL', 'redis://localhost:6380/0')
 
 
