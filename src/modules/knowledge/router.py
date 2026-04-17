@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from uuid import UUID, uuid4
 
 from arq.connections import ArqRedis
@@ -8,10 +9,19 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import Settings
+from src.core.metrics import KEY_ARQ_JOBS_ENQUEUED, incr
 from src.core.security import require_api_key
 from src.dependencies import get_arq_redis, get_db_session, get_redis, get_settings
 from src.modules.knowledge.models import Document
-from src.modules.knowledge.schemas import DocumentCreateRequest, DocumentPage, DocumentResponse, ReindexQueuedResponse, SearchRequest, SearchResult
+from src.modules.knowledge.schemas import (
+    DocumentCreateRequest,
+    DocumentPage,
+    DocumentResponse,
+    ReindexQueuedResponse,
+    SearchRequest,
+    SearchResult,
+)
 from src.modules.knowledge.service import DocumentService
 from src.modules.knowledge.storage import MinioStorage
 
@@ -32,7 +42,8 @@ async def create_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db_session),
     arq_redis: ArqRedis = Depends(get_arq_redis),
-    settings=Depends(get_settings),
+    redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings),
 ) -> DocumentResponse:
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
@@ -58,7 +69,9 @@ async def create_document(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    await arq_redis.enqueue_job('index_document', str(doc.id))
+    enqueued_at_ms = int(time.time() * 1000)
+    await arq_redis.enqueue_job('index_document', str(doc.id), enqueued_at_ms)
+    await incr(redis, KEY_ARQ_JOBS_ENQUEUED)
     return DocumentResponse(id=str(doc.id), title=doc.title, type=doc.type, status=doc.status, chunks_count=doc.chunks_count, created_at=doc.created_at)
 
 
@@ -91,7 +104,8 @@ async def reindex(
     document_id: UUID,
     db: AsyncSession = Depends(get_db_session),
     arq_redis: ArqRedis = Depends(get_arq_redis),
-    settings=Depends(get_settings),
+    redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings),
 ) -> ReindexQueuedResponse:
     doc = await db.get(Document, document_id)
     if doc is None:
@@ -104,11 +118,18 @@ async def reindex(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail='Arquivo de origem nao encontrado no storage; nao e possivel reindexar.',
         )
-    await arq_redis.enqueue_job('index_document', str(document_id))
+    enqueued_at_ms = int(time.time() * 1000)
+    await arq_redis.enqueue_job('index_document', str(document_id), enqueued_at_ms)
+    await incr(redis, KEY_ARQ_JOBS_ENQUEUED)
     return ReindexQueuedResponse()
 
 
 @router.post('/search', response_model=list[SearchResult], status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
-async def search(payload: SearchRequest, db: AsyncSession = Depends(get_db_session), redis: Redis = Depends(get_redis), settings=Depends(get_settings)) -> list[SearchResult]:
+async def search(
+    payload: SearchRequest,
+    db: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings),
+) -> list[SearchResult]:
     chunks = await DocumentService(db).search(payload.query, payload.top_k, payload.threshold, redis, settings)
     return [SearchResult(chunk_id=c.chunk_id, content=c.content, score=c.score, document_title=c.document_title, metadata=c.metadata) for c in chunks]

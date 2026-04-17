@@ -7,11 +7,15 @@ from src.config import Settings
 from src.core.security import require_api_key
 from src.dependencies import get_db_session, get_settings
 from src.modules.settings.service import SettingsService
-from src.modules.whatsapp.client import MetaAPIClient
 from src.modules.whatsapp.credentials import resolve_whatsapp_graph_credentials
+from src.modules.whatsapp.factory import create_meta_api_client
 from src.modules.whatsapp.schemas import WhatsAppConnectionResponse, WhatsAppCredentialsPayload
 
-router = APIRouter(prefix='/whatsapp/admin', tags=['whatsapp-admin'], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix='/whatsapp/admin',
+    tags=['whatsapp-admin'],
+    dependencies=[Depends(require_api_key)],
+)
 
 COMMON = {
     401: {'description': 'API key ausente'},
@@ -19,17 +23,29 @@ COMMON = {
 }
 
 
-@router.get('/connection', response_model=WhatsAppConnectionResponse, status_code=status.HTTP_200_OK, responses=COMMON)
-async def connection_status(db: AsyncSession = Depends(get_db_session), settings: Settings = Depends(get_settings)) -> WhatsAppConnectionResponse:
-    phone_id, token = await resolve_whatsapp_graph_credentials(db, settings)
+@router.get(
+    '/connection',
+    response_model=WhatsAppConnectionResponse,
+    status_code=status.HTTP_200_OK,
+    responses=COMMON,
+)
+async def connection_status(
+    db: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings),
+) -> WhatsAppConnectionResponse:
+    phone_id, _ = await resolve_whatsapp_graph_credentials(db, settings)
     vals = await SettingsService(db).get_category_values('whatsapp')
-    has_vt = bool(str(vals.get('verify_token') or '').strip()) or bool(settings.whatsapp_verify_token)
-    has_tok = bool(str(vals.get('access_token') or '').strip()) or bool(settings.whatsapp_access_token)
+    has_vt = bool(str(vals.get('verify_token') or '').strip()) or bool(
+        settings.whatsapp_verify_token,
+    )
+    has_tok = bool(str(vals.get('access_token') or '').strip()) or bool(
+        settings.whatsapp_access_token,
+    )
 
     base = (settings.public_api_base_url or '').rstrip('/')
     webhook_url = f'{base}/whatsapp/webhook' if base else None
 
-    client = MetaAPIClient.from_phone_and_token(phone_id, token)
+    client = await create_meta_api_client(db, settings)
     try:
         profile = await client.fetch_phone_number_profile()
         return WhatsAppConnectionResponse(

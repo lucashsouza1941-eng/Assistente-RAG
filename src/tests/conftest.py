@@ -3,20 +3,27 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncGenerator
 
+# Bootstrap antes de importar `src.*` para alinhar DATABASE_URL/REDIS_URL ao stack de teste
+# (AsyncSessionLocal e get_settings() usam essas variáveis ao carregar o módulo).
+_DEFAULT_TEST_DB = 'postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot'
+_DEFAULT_TEST_REDIS = 'redis://localhost:6380/0'
+_TEST_DB = os.getenv('TEST_DATABASE_URL', _DEFAULT_TEST_DB)
+_TEST_REDIS = os.getenv('TEST_REDIS_URL', _DEFAULT_TEST_REDIS)
+os.environ.setdefault('DATABASE_URL', _TEST_DB)
+os.environ.setdefault('REDIS_URL', _TEST_REDIS)
+
+TEST_DATABASE_URL = _TEST_DB
+TEST_REDIS_URL = _TEST_REDIS
+
 import pytest
 import pytest_asyncio
+from arq.connections import RedisSettings, create_pool
 from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.dependencies import get_db_session, get_redis, get_settings
+from src.dependencies import get_arq_redis, get_db_session, get_redis, get_settings
 from src.main import create_app
-
-TEST_DATABASE_URL = os.getenv(
-    'TEST_DATABASE_URL',
-    'postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot',
-)
-TEST_REDIS_URL = os.getenv('TEST_REDIS_URL', 'redis://localhost:6380/0')
 
 
 @pytest_asyncio.fixture
@@ -85,12 +92,28 @@ def mock_meta_api_factory(monkeypatch):
     async def _mk(_db, _settings):
         return _MetaAPIStub()
 
-    monkeypatch.setattr('src.modules.whatsapp.factory.create_meta_api_client', _mk)
+    # `from factory import create_meta_api_client` copia a referência; patch onde o nome é usado.
+    for _target in (
+        'src.modules.whatsapp.factory.create_meta_api_client',
+        'src.modules.whatsapp.service.create_meta_api_client',
+        'src.modules.whatsapp.admin_router.create_meta_api_client',
+    ):
+        monkeypatch.setattr(_target, _mk)
 
 
 class _MetaAPIStub:
     async def aclose(self) -> None:
         return None
+
+    async def fetch_phone_number_profile(self) -> dict:
+        """Usado por GET /whatsapp/admin/connection — evita HTTP à Graph API nos testes."""
+        return {
+            'id': 'stub-phone-id',
+            'verified_name': 'Clinica Stub',
+            'display_phone_number': '+55 11 90000-0000',
+            'quality_rating': 'GREEN',
+            'messaging_limit_tier': 'TIER_1',
+        }
 
     async def send_text_message(self, to: str, text: str):
         return None
@@ -110,8 +133,16 @@ async def client(async_session: AsyncSession, redis_client: Redis, mock_openai) 
     async def _redis_override():
         return redis_client
 
+    async def _arq_override():
+        pool = await create_pool(RedisSettings.from_dsn(TEST_REDIS_URL))
+        try:
+            yield pool
+        finally:
+            await pool.close()
+
     app.dependency_overrides[get_db_session] = _db_override
     app.dependency_overrides[get_redis] = _redis_override
+    app.dependency_overrides[get_arq_redis] = _arq_override
 
     headers = {'X-API-Key': get_settings().api_key}
     async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test', headers=headers) as ac:

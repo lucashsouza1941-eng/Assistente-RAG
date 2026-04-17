@@ -28,3 +28,14 @@ async def test_valid_message_200(client):
     sig = 'sha256=' + hmac.new(s.whatsapp_app_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     r = await client.post('/whatsapp/webhook', content=payload, headers={'X-Hub-Signature-256': sig})
     assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_connection_uses_factory_stub_no_external_http(client):
+    """GET /whatsapp/admin/connection deve usar create_meta_api_client (stub em conftest), sem Graph API."""
+    r = await client.get('/whatsapp/admin/connection')
+    assert r.status_code == 200
+    data = r.json()
+    assert data['connected'] is True
+    assert data['phone_number_id'] == 'stub-phone-id'
+    assert data.get('verified_name') == 'Clinica Stub'

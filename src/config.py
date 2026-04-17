@@ -1,13 +1,18 @@
-from typing import Any
-
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
 
-    cors_origins: list[str] = Field(default_factory=lambda: ['http://localhost:3000'], alias='CORS_ORIGINS')
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ['http://localhost:3000'],
+        alias='CORS_ORIGINS',
+    )
     database_url: str = Field(..., alias='DATABASE_URL')
     redis_url: str = Field(..., alias='REDIS_URL')
     openai_api_key: str = Field(..., alias='OPENAI_API_KEY')
@@ -36,7 +41,7 @@ class Settings(BaseSettings):
 
     @field_validator('cors_origins', mode='before')
     @classmethod
-    def parse_cors_origins(cls, v: Any) -> list[str]:
+    def parse_cors_origins(cls, v: object) -> list[str]:
         if v is None or v == '':
             return ['http://localhost:3000']
         if isinstance(v, str):

@@ -46,7 +46,12 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot
           TEST_REDIS_URL: redis://localhost:6380/0
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot
+          REDIS_URL: redis://localhost:6380/0
           OPENAI_API_KEY: sk-test-fake-key-for-ci
+          WHATSAPP_ACCESS_TOKEN: fake-token-for-ci
+          WHATSAPP_PHONE_NUMBER_ID: "123456789"
+          WHATSAPP_VERIFY_TOKEN: verify-ci
           WHATSAPP_APP_SECRET: fake-secret-for-ci
           HASH_SALT: fake-salt-32-chars-for-ci-only!!
           API_KEY: fake-api-key-for-ci
