@@ -8,7 +8,7 @@ from src.modules.settings.models import Setting
 @pytest.mark.asyncio
 async def test_get_settings_bot(client, async_session):
     async_session.add(
-        Setting(key='panel_bot', category='bot', value={'name': 'Test'}),
+        Setting(key='bot.clinic_name', category='bot', value={'v': 'Clinica Teste'}),
     )
     await async_session.commit()
 
@@ -17,7 +17,7 @@ async def test_get_settings_bot(client, async_session):
     data = res.json()
     assert isinstance(data, list)
     assert len(data) >= 1
-    assert data[0]['key'] == 'panel_bot'
+    assert any(row['key'] == 'bot.clinic_name' for row in data)
 
 
 @pytest.mark.asyncio

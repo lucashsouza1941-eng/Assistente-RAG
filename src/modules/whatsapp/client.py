@@ -27,8 +27,27 @@ class MetaAPIClient:
             headers={'Authorization': f'Bearer {settings.whatsapp_access_token}'},
         )
 
+    @classmethod
+    def from_phone_and_token(cls, phone_number_id: str, access_token: str) -> MetaAPIClient:
+        instance = cls.__new__(cls)
+        instance.base = f'https://graph.facebook.com/v20.0/{phone_number_id.strip()}'
+        instance._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30),
+            headers={'Authorization': f'Bearer {access_token.strip()}'},
+        )
+        return instance
+
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def fetch_phone_number_profile(self) -> dict:
+        """GET no recurso do número (Graph API): verified_name, display_phone_number, etc."""
+        r = await self._client.get(
+            self.base,
+            params={'fields': 'verified_name,display_phone_number,quality_rating,messaging_limit_tier'},
+        )
+        r.raise_for_status()
+        return r.json()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
     async def send_text_message(self, to: str, text: str) -> MessageResponse:
@@ -42,7 +61,7 @@ class MetaAPIClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
     async def send_template_message(self, to: str, template_name: str, components: list) -> MessageResponse:
         start = time.perf_counter()
-        r = await self.client.post(f'{self.base}/messages', json={'messaging_product': 'whatsapp', 'to': to, 'type': 'template', 'template': {'name': template_name, 'language': {'code': 'pt_BR'}, 'components': components}})
+        r = await self._client.post(f'{self.base}/messages', json={'messaging_product': 'whatsapp', 'to': to, 'type': 'template', 'template': {'name': template_name, 'language': {'code': 'pt_BR'}, 'components': components}})
         r.raise_for_status()
         mid = r.json().get('messages', [{}])[0].get('id', '')
         log.info('whatsapp.send_template', duration_ms=int((time.perf_counter()-start)*1000), metadata={'to_hash': hashlib.sha256(to.encode()).hexdigest(), 'message_id_returned': mid, 'status_code': r.status_code})

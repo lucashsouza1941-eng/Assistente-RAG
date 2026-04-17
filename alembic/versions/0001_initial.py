@@ -1,4 +1,4 @@
-﻿"""initial
+"""initial
 
 Revision ID: 0001_initial
 Revises:
@@ -18,23 +18,58 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _create_enum_if_missing(name: str, labels: tuple[str, ...]) -> None:
+    """Evita falha ao reexecutar upgrade se o tipo já existir (ex.: migração interrompida)."""
+    labels_sql = ', '.join(f"'{x}'" for x in labels)
+    op.execute(
+        f"""
+        DO $$ BEGIN
+            CREATE TYPE {name} AS ENUM ({labels_sql});
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+        END $$;
+        """
+    )
+
+
 def upgrade() -> None:
     op.execute('CREATE EXTENSION IF NOT EXISTS vector;')
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
-    op.execute("CREATE TYPE document_type AS ENUM ('PROCEDURE', 'FAQ', 'PROTOCOL', 'GENERAL');")
-    op.execute("CREATE TYPE document_status AS ENUM ('PENDING', 'PROCESSING', 'INDEXED', 'ERROR');")
-    op.execute("CREATE TYPE conversation_status AS ENUM ('ACTIVE', 'CLOSED', 'ESCALATED');")
-    op.execute("CREATE TYPE message_role AS ENUM ('USER', 'ASSISTANT', 'SYSTEM');")
+    _create_enum_if_missing('document_type', ('PROCEDURE', 'FAQ', 'PROTOCOL', 'GENERAL'))
+    _create_enum_if_missing('document_status', ('PENDING', 'PROCESSING', 'INDEXED', 'ERROR'))
+    _create_enum_if_missing('conversation_status', ('ACTIVE', 'CLOSED', 'ESCALATED'))
+    _create_enum_if_missing('message_role', ('USER', 'ASSISTANT', 'SYSTEM'))
+
+    document_type_enum = postgresql.ENUM(
+        'PROCEDURE', 'FAQ', 'PROTOCOL', 'GENERAL',
+        name='document_type',
+        create_type=False,
+    )
+    document_status_enum = postgresql.ENUM(
+        'PENDING', 'PROCESSING', 'INDEXED', 'ERROR',
+        name='document_status',
+        create_type=False,
+    )
+    conversation_status_enum = postgresql.ENUM(
+        'ACTIVE', 'CLOSED', 'ESCALATED',
+        name='conversation_status',
+        create_type=False,
+    )
+    message_role_enum = postgresql.ENUM(
+        'USER', 'ASSISTANT', 'SYSTEM',
+        name='message_role',
+        create_type=False,
+    )
 
     op.create_table(
         'documents',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('title', sa.String(length=500), nullable=False),
-        sa.Column('type', sa.Enum(name='document_type', create_type=False), nullable=False),
+        sa.Column('type', document_type_enum, nullable=False),
         sa.Column('original_filename', sa.String(length=255), nullable=False),
         sa.Column('content_hash', sa.String(length=64), nullable=False),
-        sa.Column('status', sa.Enum(name='document_status', create_type=False), nullable=False),
+        sa.Column('status', document_status_enum, nullable=False),
         sa.Column('chunks_count', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('error_message', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
@@ -73,7 +108,7 @@ def upgrade() -> None:
         'messages',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('conversation_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role', sa.Enum(name='message_role', create_type=False), nullable=False),
+        sa.Column('role', message_role_enum, nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
         sa.Column('sources_used', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column('confidence', sa.Float(), nullable=True),

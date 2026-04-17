@@ -5,11 +5,9 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from src.config import Settings
 from src.core.logging import bind_correlation_id, get_logger
 
 log = get_logger(module='core.middleware')
-settings = Settings()
 
 
 class CorrelationIDMiddleware(BaseHTTPMiddleware):
@@ -42,13 +40,15 @@ def _normalized_path(path: str) -> str:
 
 def _is_rate_limit_excluded(path: str) -> bool:
     p = _normalized_path(path)
-    return p in ('/health', '/whatsapp/webhook')
+    return p in ('/health', '/whatsapp/webhook', '/metrics')
 
 
 def get_client_ip(request: Request) -> str:
     # Confiar no X-Forwarded-For somente em ambiente atras de proxy confiavel.
     forwarded_for = request.headers.get('X-Forwarded-For')
-    if forwarded_for and settings.trust_proxy:
+    app_settings = getattr(request.app.state, 'settings', None)
+    trust_proxy = bool(getattr(app_settings, 'trust_proxy', False))
+    if forwarded_for and trust_proxy:
         return forwarded_for.split(',')[0].strip()
     client = request.client
     return client.host if client else 'unknown'

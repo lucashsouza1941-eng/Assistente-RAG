@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from uuid import UUID, uuid4
 
 from arq.connections import ArqRedis
@@ -11,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import require_api_key
 from src.dependencies import get_arq_redis, get_db_session, get_redis, get_settings
-from src.modules.knowledge.schemas import DocumentCreateRequest, DocumentPage, DocumentResponse, ReindexResponse, SearchRequest, SearchResult
+from src.modules.knowledge.models import Document
+from src.modules.knowledge.schemas import DocumentCreateRequest, DocumentPage, DocumentResponse, ReindexQueuedResponse, SearchRequest, SearchResult
 from src.modules.knowledge.service import DocumentService
+from src.modules.knowledge.storage import MinioStorage
 
 COMMON_AUTH_RESPONSES = {
     401: {'description': 'API key ausente'},
@@ -31,6 +32,7 @@ async def create_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db_session),
     arq_redis: ArqRedis = Depends(get_arq_redis),
+    settings=Depends(get_settings),
 ) -> DocumentResponse:
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
@@ -40,10 +42,15 @@ async def create_document(
 
     document_id = uuid4()
     original_filename = file.filename or 'upload'
-    tmp_dir = Path('/tmp') / str(document_id)
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    (tmp_dir / original_filename).write_bytes(content)
-    (tmp_dir / 'meta.json').write_text(json.dumps({'content_type': file.content_type, 'original_filename': original_filename}), encoding='utf-8')
+    # Persistência compartilhada (MinIO): o worker roda noutro container e lê os mesmos objetos.
+    storage = MinioStorage(settings)
+    await storage.ensure_bucket()
+    await storage.upload_bytes(f'{document_id}/file', content, file.content_type)
+    await storage.upload_bytes(
+        f'{document_id}/meta.json',
+        json.dumps({'content_type': file.content_type, 'original_filename': original_filename}).encode('utf-8'),
+        'application/json',
+    )
 
     service = DocumentService(db)
     try:
@@ -70,13 +77,35 @@ async def delete(document_id: UUID, db: AsyncSession = Depends(get_db_session)) 
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post('/documents/{document_id}/reindex', response_model=ReindexResponse, status_code=status.HTTP_202_ACCEPTED, responses={**COMMON_AUTH_RESPONSES, 404: {'description': 'Recurso nao encontrado'}})
-async def reindex(document_id: UUID, db: AsyncSession = Depends(get_db_session), settings=Depends(get_settings)) -> ReindexResponse:
-    try:
-        status_value = await DocumentService(db).index(document_id, settings)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return ReindexResponse(document_id=str(document_id), status=status_value)
+@router.post(
+    '/documents/{document_id}/reindex',
+    response_model=ReindexQueuedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        **COMMON_AUTH_RESPONSES,
+        404: {'description': 'Documento nao encontrado'},
+        422: {'description': 'Arquivo de origem ausente no storage'},
+    },
+)
+async def reindex(
+    document_id: UUID,
+    db: AsyncSession = Depends(get_db_session),
+    arq_redis: ArqRedis = Depends(get_arq_redis),
+    settings=Depends(get_settings),
+) -> ReindexQueuedResponse:
+    doc = await db.get(Document, document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail='Document not found')
+    storage = MinioStorage(settings)
+    await storage.ensure_bucket()
+    prefix = f'{document_id}/'
+    if not await storage.exists(f'{prefix}file') or not await storage.exists(f'{prefix}meta.json'):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Arquivo de origem nao encontrado no storage; nao e possivel reindexar.',
+        )
+    await arq_redis.enqueue_job('index_document', str(document_id))
+    return ReindexQueuedResponse()
 
 
 @router.post('/search', response_model=list[SearchResult], status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)

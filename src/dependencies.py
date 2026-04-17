@@ -7,7 +7,6 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config import Settings
-from src.modules.whatsapp.client import MetaAPIClient
 
 
 @lru_cache
@@ -27,10 +26,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def get_redis(request: Request) -> Redis:
     return request.app.state.redis_client
-
-
-def get_meta_api_client(request: Request) -> MetaAPIClient:
-    return request.app.state.meta_api_client
 
 
 async def get_arq_redis() -> AsyncGenerator[ArqRedis, None]:

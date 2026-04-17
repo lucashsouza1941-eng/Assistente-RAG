@@ -120,17 +120,47 @@ export async function searchKnowledge(
   return parseJson<SearchResult[]>(res)
 }
 
-export async function reindexDocument(id: string): Promise<ReindexResponse> {
+export async function reindexDocument(id: string): Promise<ReindexQueuedResponse> {
   const res = await apiFetch(`/knowledge/documents/${encodeURIComponent(id)}/reindex`, {
     method: "POST",
   })
-  return parseJson<ReindexResponse>(res)
+  return parseJson<ReindexQueuedResponse>(res)
+}
+
+export interface WhatsAppConnectionStatus {
+  connected: boolean
+  phone_number_id: string
+  verified_name?: string | null
+  display_phone_number?: string | null
+  quality_rating?: string | null
+  messaging_limit_tier?: string | null
+  error?: string | null
+  public_webhook_url?: string | null
+  verify_token_configured: boolean
+  access_token_configured: boolean
 }
 
 export async function fetchSettings(category: string): Promise<SettingResponse[]> {
   const res = await apiFetch(`/settings/${encodeURIComponent(category)}`)
   if (res.status === 404) return []
   return parseJson<SettingResponse[]>(res)
+}
+
+export async function fetchWhatsAppConnection(): Promise<WhatsAppConnectionStatus> {
+  const res = await apiFetch("/whatsapp/admin/connection")
+  return parseJson<WhatsAppConnectionStatus>(res)
+}
+
+export async function putWhatsAppCredentials(body: {
+  phone_number_id?: string
+  access_token?: string
+  verify_token?: string
+}): Promise<{ status: string }> {
+  const res = await apiFetch("/whatsapp/admin/credentials", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  })
+  return parseJson<{ status: string }>(res)
 }
 
 export async function updateSetting(key: string, value: unknown): Promise<SettingResponse> {
@@ -227,9 +257,8 @@ export interface SearchResult {
   metadata: Record<string, unknown>
 }
 
-export interface ReindexResponse {
-  document_id: string
-  status: string
+export interface ReindexQueuedResponse {
+  status: "queued"
 }
 
 export interface SettingResponse {

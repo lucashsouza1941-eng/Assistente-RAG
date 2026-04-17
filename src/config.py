@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     database_url: str = Field(..., alias='DATABASE_URL')
     redis_url: str = Field(..., alias='REDIS_URL')
     openai_api_key: str = Field(..., alias='OPENAI_API_KEY')
+    minio_endpoint: str = Field(default='minio:9000', alias='MINIO_ENDPOINT')
+    minio_access_key: str = Field(default='minioadmin', alias='MINIO_ACCESS_KEY')
+    minio_secret_key: str = Field(default='minioadmin', alias='MINIO_SECRET_KEY')
+    minio_bucket: str = Field(default='documents', alias='MINIO_BUCKET')
 
     whatsapp_access_token: str = Field(..., alias='WHATSAPP_ACCESS_TOKEN')
     whatsapp_phone_number_id: str = Field(..., alias='WHATSAPP_PHONE_NUMBER_ID')
@@ -27,6 +31,8 @@ class Settings(BaseSettings):
     environment: str = Field(default='development', alias='ENVIRONMENT')
     service_name: str = Field(default='odontobot-api', alias='SERVICE_NAME')
     service_version: str = Field(default='0.1.0', alias='SERVICE_VERSION')
+    # URL pública da API (ex.: https://api.exemplo.com) para montar o callback do webhook no painel
+    public_api_base_url: str | None = Field(default=None, alias='PUBLIC_API_BASE_URL')
 
     @field_validator('cors_origins', mode='before')
     @classmethod

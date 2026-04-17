@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
-import { ApiRequestError, fetchSettings, updateSetting } from "@/lib/api-client"
+import { ApiRequestError, fetchSettings } from "@/lib/api-client"
 import { Skeleton } from "@/components/ui/skeleton"
+import { indexByKey, putScalarKey, unwrapSettingValue } from "@/lib/settings-values"
 
 const DEFAULT_NOTIFICATIONS = {
   escalationEmail: "contato@odontovida.com.br",
@@ -18,7 +19,7 @@ const DEFAULT_NOTIFICATIONS = {
   webhookUrl: "",
 }
 
-function mergeNotificationsValue(raw: unknown): typeof DEFAULT_NOTIFICATIONS {
+function mergeNotificationsLegacy(raw: unknown): typeof DEFAULT_NOTIFICATIONS {
   if (!raw || typeof raw !== "object") return DEFAULT_NOTIFICATIONS
   const v = raw as Record<string, unknown>
   return {
@@ -36,6 +37,33 @@ function mergeNotificationsValue(raw: unknown): typeof DEFAULT_NOTIFICATIONS {
   }
 }
 
+function loadNotificationsFromRows(rows: ReturnType<typeof indexByKey>): typeof DEFAULT_NOTIFICATIONS {
+  const hasGranular =
+    rows.has("notifications.escalation_email") || rows.has("notifications.webhook_url")
+  if (!hasGranular) {
+    const legacy = rows.get("panel_notifications")
+    if (legacy) {
+      const u = unwrapSettingValue(legacy)
+      if (u && typeof u === "object") return mergeNotificationsLegacy(u)
+    }
+  }
+
+  const escalationEmail = unwrapSettingValue(rows.get("notifications.escalation_email"))
+  const notifyLongWait = unwrapSettingValue(rows.get("notifications.notify_long_wait"))
+  const dailySummary = unwrapSettingValue(rows.get("notifications.daily_summary"))
+  const webhookUrl = unwrapSettingValue(rows.get("notifications.webhook_url"))
+
+  return {
+    escalationEmail:
+      typeof escalationEmail === "string" ? escalationEmail : DEFAULT_NOTIFICATIONS.escalationEmail,
+    notifyLongWait:
+      typeof notifyLongWait === "boolean" ? notifyLongWait : DEFAULT_NOTIFICATIONS.notifyLongWait,
+    dailySummary:
+      typeof dailySummary === "boolean" ? dailySummary : DEFAULT_NOTIFICATIONS.dailySummary,
+    webhookUrl: typeof webhookUrl === "string" ? webhookUrl : DEFAULT_NOTIFICATIONS.webhookUrl,
+  }
+}
+
 export function NotificationSettings() {
   const [settings, setSettings] = useState(DEFAULT_NOTIFICATIONS)
   const [loading, setLoading] = useState(true)
@@ -48,11 +76,9 @@ export function NotificationSettings() {
       setLoading(true)
       setError(null)
       try {
-        const rows = await fetchSettings("notifications")
-        const row = rows.find((r) => r.key === "panel_notifications")
-        if (!cancelled && row?.value) {
-          setSettings(mergeNotificationsValue(row.value))
-        }
+        const rowsList = await fetchSettings("notifications")
+        const rows = indexByKey(rowsList)
+        if (!cancelled) setSettings(loadNotificationsFromRows(rows))
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiRequestError ? e.message : "Erro ao carregar")
       } finally {
@@ -66,10 +92,12 @@ export function NotificationSettings() {
 
   const handleSave = async () => {
     try {
-      await updateSetting(
-        "panel_notifications",
-        settings as unknown as Record<string, unknown>,
-      )
+      await Promise.all([
+        putScalarKey("notifications.escalation_email", settings.escalationEmail),
+        putScalarKey("notifications.notify_long_wait", settings.notifyLongWait),
+        putScalarKey("notifications.daily_summary", settings.dailySummary),
+        putScalarKey("notifications.webhook_url", settings.webhookUrl),
+      ])
       toast.success("Configurações de notificações salvas")
     } catch (e) {
       toast.error(e instanceof ApiRequestError ? e.message : "Falha ao salvar")

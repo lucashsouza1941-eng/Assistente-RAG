@@ -56,6 +56,38 @@ def mock_openai(monkeypatch):
     monkeypatch.setattr('src.modules.knowledge.indexer.AsyncOpenAI', lambda api_key: _OpenAI())
 
 
+@pytest.fixture(autouse=True)
+def mock_minio_storage(monkeypatch):
+    storage: dict[str, bytes] = {}
+
+    async def _ensure_bucket(self):
+        return None
+
+    async def _upload_bytes(self, object_name: str, content: bytes, content_type: str | None = None):
+        storage[object_name] = content
+
+    async def _download_bytes(self, object_name: str) -> bytes:
+        if object_name not in storage:
+            raise FileNotFoundError(object_name)
+        return storage[object_name]
+
+    async def _exists(self, object_name: str) -> bool:
+        return object_name in storage
+
+    monkeypatch.setattr('src.modules.knowledge.storage.MinioStorage.ensure_bucket', _ensure_bucket)
+    monkeypatch.setattr('src.modules.knowledge.storage.MinioStorage.upload_bytes', _upload_bytes)
+    monkeypatch.setattr('src.modules.knowledge.storage.MinioStorage.download_bytes', _download_bytes)
+    monkeypatch.setattr('src.modules.knowledge.storage.MinioStorage.exists', _exists)
+
+
+@pytest.fixture(autouse=True)
+def mock_meta_api_factory(monkeypatch):
+    async def _mk(_db, _settings):
+        return _MetaAPIStub()
+
+    monkeypatch.setattr('src.modules.whatsapp.factory.create_meta_api_client', _mk)
+
+
 class _MetaAPIStub:
     async def aclose(self) -> None:
         return None
@@ -71,7 +103,6 @@ class _MetaAPIStub:
 async def client(async_session: AsyncSession, redis_client: Redis, mock_openai) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
     app.state.redis_client = redis_client
-    app.state.meta_api_client = _MetaAPIStub()
 
     async def _db_override():
         yield async_session

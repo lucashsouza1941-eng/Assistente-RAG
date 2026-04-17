@@ -8,13 +8,14 @@ from pathlib import Path
 from uuid import UUID
 
 from openai import AsyncOpenAI
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from src.config import Settings
 from src.core.logging import get_logger
 from src.dependencies import AsyncSessionLocal
 from src.modules.knowledge.chunking import TextChunker
 from src.modules.knowledge.models import Document, DocumentChunk, DocumentStatus
+from src.modules.knowledge.storage import MinioStorage
 
 log = get_logger(module='knowledge.indexer')
 
@@ -26,9 +27,13 @@ class IndexingService:
     async def index_document(self, document_id: UUID, settings: Settings) -> DocumentStatus:
         started = time.perf_counter()
         client = AsyncOpenAI(api_key=settings.openai_api_key)
+        # Origem da verdade: MinIO (bucket configurável). /tmp aqui é só scratch local após download.
         tmp_dir = Path('/tmp') / str(document_id)
-        meta_path = tmp_dir / 'meta.json'
+        storage = MinioStorage(settings)
         try:
+            await storage.ensure_bucket()
+            await self._download_document_assets(storage, document_id, tmp_dir)
+            meta_path = tmp_dir / 'meta.json'
             async with AsyncSessionLocal() as db:
                 async with db.begin():
                     doc = await db.scalar(select(Document).where(Document.id == document_id))
@@ -41,6 +46,9 @@ class IndexingService:
                     content_type = str(meta['content_type'])
                     original_filename = str(meta['original_filename'])
                     file_path = tmp_dir / original_filename
+
+                    await db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc.id))
+                    await db.flush()
 
                     chunks = self.chunker.split(file_path=file_path, content_type=content_type, document_id=str(document_id))
                     vectors = await self._embed_batches(client, [c.content for c in chunks])
@@ -98,3 +106,12 @@ class IndexingService:
 
         nested = await asyncio.gather(*(_one(b) for b in batches))
         return [v for part in nested for v in part]
+
+    async def _download_document_assets(self, storage: MinioStorage, document_id: UUID, tmp_dir: Path) -> None:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        meta_bytes = await storage.download_bytes(f'{document_id}/meta.json')
+        (tmp_dir / 'meta.json').write_bytes(meta_bytes)
+        meta = json.loads(meta_bytes.decode('utf-8'))
+        original_filename = str(meta['original_filename'])
+        file_bytes = await storage.download_bytes(f'{document_id}/file')
+        (tmp_dir / original_filename).write_bytes(file_bytes)

@@ -7,7 +7,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import Settings
-from src.modules.knowledge.indexer import IndexingService
 from src.modules.knowledge.models import Document, DocumentStatus
 from src.modules.knowledge.retriever import RetrieverService
 from src.modules.knowledge.schemas import DocumentCreateRequest
@@ -37,9 +36,6 @@ class DocumentService:
             raise ValueError('Document not found')
         await self.db.delete(doc)
         await self.db.commit()
-
-    async def index(self, document_id: UUID, settings: Settings) -> DocumentStatus:
-        return await IndexingService().index_document(document_id, settings)
 
     async def search(self, query: str, top_k: int, threshold: float, redis: Redis, settings: Settings):
         return await RetrieverService(self.db, redis, settings).search(query, top_k, threshold)

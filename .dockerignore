@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.cursor
+terminals
+agent-transcripts
+*.log
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+venv
+dist
+build

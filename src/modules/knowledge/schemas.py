@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -42,6 +43,7 @@ class SearchResult(BaseModel):
     metadata: dict
 
 
-class ReindexResponse(BaseModel):
-    document_id: str
-    status: DocumentStatus
+class ReindexQueuedResponse(BaseModel):
+    """Resposta do POST /reindex: apenas confirma enfileiramento; indexação ocorre no worker."""
+
+    status: Literal['queued'] = 'queued'

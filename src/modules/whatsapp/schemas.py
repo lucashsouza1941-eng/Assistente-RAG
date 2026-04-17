@@ -52,3 +52,22 @@ class WebhookPayload(BaseModel):
 
 class WebhookAckResponse(BaseModel):
     message: str
+
+
+class WhatsAppConnectionResponse(BaseModel):
+    connected: bool
+    phone_number_id: str
+    verified_name: str | None = None
+    display_phone_number: str | None = None
+    quality_rating: str | None = None
+    messaging_limit_tier: str | None = None
+    error: str | None = None
+    public_webhook_url: str | None = None
+    verify_token_configured: bool = False
+    access_token_configured: bool = False
+
+
+class WhatsAppCredentialsPayload(BaseModel):
+    phone_number_id: str | None = None
+    access_token: str | None = None
+    verify_token: str | None = None

@@ -7,6 +7,7 @@ from src.config import Settings
 from src.modules.settings.models import Setting
 
 
+# Legado: chaves aglomeradas `panel_*` (painel antigo). Preferir chaves `categoria.campo` (ex.: `ai.model`, `bot.clinic_name`).
 _PANEL_KEY_CATEGORY: dict[str, str] = {
     'panel_bot': 'bot',
     'panel_ai': 'ai',
@@ -66,6 +67,16 @@ class SettingsService:
             'bot.closing_message': 'Obrigado pelo contato! Ate logo.',
             'bot.business_hours_start': '08:00',
             'bot.business_hours_end': '18:00',
+            'bot.respond_outside_hours': False,
+            'bot.work_days': {
+                'seg': True,
+                'ter': True,
+                'qua': True,
+                'qui': True,
+                'sex': True,
+                'sab': False,
+                'dom': False,
+            },
         }
         for key, value in defaults.items():
             existing = await self.db.scalar(select(Setting).where(Setting.key == key))

@@ -14,8 +14,13 @@ import {
 } from "@/components/ui/select"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { ApiRequestError, fetchSettings, updateSetting } from "@/lib/api-client"
+import { ApiRequestError, fetchSettings } from "@/lib/api-client"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  indexByKey,
+  putScalarKey,
+  unwrapSettingValue,
+} from "@/lib/settings-values"
 
 const DEFAULT_AI = {
   model: "gpt-4o",
@@ -24,7 +29,8 @@ const DEFAULT_AI = {
   confidenceThreshold: 70,
 }
 
-function mergeAiValue(raw: unknown): typeof DEFAULT_AI {
+/** Legado: um único registro `panel_ai` com objeto plano. */
+function mergeAiLegacy(raw: unknown): typeof DEFAULT_AI {
   if (!raw || typeof raw !== "object") return DEFAULT_AI
   const v = raw as Record<string, unknown>
   return {
@@ -40,6 +46,38 @@ function mergeAiValue(raw: unknown): typeof DEFAULT_AI {
   }
 }
 
+function loadAiFromRows(rows: ReturnType<typeof indexByKey>): typeof DEFAULT_AI {
+  const hasGranular =
+    rows.has("ai.model") ||
+    rows.has("ai.temperature") ||
+    rows.has("ai.max_tokens") ||
+    rows.has("ai.escalation_threshold")
+  if (!hasGranular) {
+    const legacy = rows.get("panel_ai")
+    if (legacy) {
+      const u = unwrapSettingValue(legacy)
+      if (u && typeof u === "object") return mergeAiLegacy(u)
+    }
+  }
+
+  const model = unwrapSettingValue(rows.get("ai.model"))
+  const temperature = unwrapSettingValue(rows.get("ai.temperature"))
+  const maxTokens = unwrapSettingValue(rows.get("ai.max_tokens"))
+  const esc = unwrapSettingValue(rows.get("ai.escalation_threshold"))
+
+  let confidenceThreshold = DEFAULT_AI.confidenceThreshold
+  if (typeof esc === "number" && !Number.isNaN(esc)) {
+    confidenceThreshold = esc <= 1 ? Math.round(esc * 100) : Math.round(esc)
+  }
+
+  return {
+    model: typeof model === "string" ? model : DEFAULT_AI.model,
+    temperature: typeof temperature === "number" ? temperature : DEFAULT_AI.temperature,
+    maxTokens: typeof maxTokens === "number" ? maxTokens : DEFAULT_AI.maxTokens,
+    confidenceThreshold,
+  }
+}
+
 export function AISettings() {
   const [settings, setSettings] = useState(DEFAULT_AI)
   const [loading, setLoading] = useState(true)
@@ -51,11 +89,9 @@ export function AISettings() {
       setLoading(true)
       setError(null)
       try {
-        const rows = await fetchSettings("ai")
-        const row = rows.find((r) => r.key === "panel_ai")
-        if (!cancelled && row?.value) {
-          setSettings(mergeAiValue(row.value))
-        }
+        const rowsList = await fetchSettings("ai")
+        const rows = indexByKey(rowsList)
+        if (!cancelled) setSettings(loadAiFromRows(rows))
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiRequestError ? e.message : "Erro ao carregar")
       } finally {
@@ -69,7 +105,12 @@ export function AISettings() {
 
   const handleSave = async () => {
     try {
-      await updateSetting("panel_ai", settings as unknown as Record<string, unknown>)
+      await Promise.all([
+        putScalarKey("ai.model", settings.model),
+        putScalarKey("ai.temperature", settings.temperature),
+        putScalarKey("ai.max_tokens", settings.maxTokens),
+        putScalarKey("ai.escalation_threshold", settings.confidenceThreshold / 100),
+      ])
       toast.success("Configurações de IA salvas")
     } catch (e) {
       toast.error(e instanceof ApiRequestError ? e.message : "Falha ao salvar")
