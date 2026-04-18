@@ -75,11 +75,29 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "20"
       - run: npm install -g pnpm
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
         working-directory: .
       - name: Lint frontend
         run: pnpm lint
+        working-directory: .
+      - name: Build Next.js
+        env:
+          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
+          NEXTAUTH_URL: http://localhost:3000
+        run: pnpm build
+        working-directory: .
+      - name: Start Next.js and run Playwright
+        env:
+          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
+          NEXTAUTH_URL: http://localhost:3000
+          PORT: "3000"
+        run: |
+          set -e
+          pnpm start &
+          npx --yes wait-on@7 http://127.0.0.1:3000 --timeout 120000
+          pnpm exec playwright install --with-deps
+          pnpm exec playwright test
         working-directory: .
