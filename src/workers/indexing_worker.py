@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from time import perf_counter, time
+from typing import Any
 
 from arq import func
 from arq.connections import RedisSettings
@@ -21,7 +22,7 @@ log = get_logger(module='workers.indexing')
 settings = get_settings()
 
 
-async def index_document_job(ctx: dict, document_id: str, enqueued_at_ms: int = 0) -> dict:
+async def index_document_job(ctx: dict[str, Any], document_id: str, enqueued_at_ms: int = 0) -> dict[str, Any]:
     """Indexação via MinIO. `enqueued_at_ms`: epoch ms na API para métrica enqueue→sucesso."""
     from uuid import UUID
 
@@ -54,11 +55,11 @@ async def index_document_job(ctx: dict, document_id: str, enqueued_at_ms: int = 
         raise
 
 
-async def startup(ctx: dict) -> None:
+async def startup(ctx: dict[str, Any]) -> None:
     log.info("indexing_worker_started")
 
 
-async def shutdown(ctx: dict) -> None:
+async def shutdown(ctx: dict[str, Any]) -> None:
     log.info("indexing_worker_stopped")
 
 

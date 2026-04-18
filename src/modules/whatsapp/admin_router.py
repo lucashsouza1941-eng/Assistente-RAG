@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +19,7 @@ router = APIRouter(
     dependencies=[Depends(require_api_key)],
 )
 
-COMMON = {
+COMMON: dict[int | str, dict[str, Any]] = {
     401: {'description': 'API key ausente'},
     403: {'description': 'API key invalida'},
 }

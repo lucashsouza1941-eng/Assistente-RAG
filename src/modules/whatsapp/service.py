@@ -69,7 +69,7 @@ class WhatsAppService:
     @staticmethod
     async def _allow(redis: Redis, number_hash: str) -> bool:
         key = f'rate:{number_hash}'
-        count = await redis.incr(key)
+        count = int(await redis.incr(key))
         if count == 1:
             await redis.expire(key, 60)
         return count <= 20

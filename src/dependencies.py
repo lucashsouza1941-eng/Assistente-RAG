@@ -1,10 +1,16 @@
+from collections.abc import AsyncGenerator
 from functools import lru_cache
-from typing import AsyncGenerator
+from typing import cast
 
 from arq.connections import ArqRedis, RedisSettings, create_pool
 from fastapi import Request
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.config import Settings
 
@@ -25,7 +31,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_redis(request: Request) -> Redis:
-    return request.app.state.redis_client
+    return cast(Redis, request.app.state.redis_client)
 
 
 async def get_arq_redis() -> AsyncGenerator[ArqRedis, None]:

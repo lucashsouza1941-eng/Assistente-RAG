@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -40,7 +40,7 @@ class SearchResult(BaseModel):
     content: str
     score: float
     document_title: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 class ReindexQueuedResponse(BaseModel):

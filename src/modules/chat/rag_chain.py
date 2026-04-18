@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import Any, cast
 from uuid import UUID
 
 from langchain_openai import ChatOpenAI
@@ -18,7 +19,7 @@ from src.modules.knowledge.retriever import RetrieverService
 @dataclass(slots=True)
 class RAGResponse:
     content: str
-    sources: list[dict]
+    sources: list[dict[str, Any]]
     confidence: float
     escalated: bool
     response_time_ms: int
@@ -54,7 +55,7 @@ class RAGChain:
         )
 
     @classmethod
-    async def from_settings(cls, db: AsyncSession, static_settings: Settings) -> 'RAGChain':
+    async def from_settings(cls, db: AsyncSession, static_settings: Settings) -> RAGChain:
         """Cria RAGChain com configuracoes dinamicas do banco."""
         from src.modules.settings.service import SettingsService
 
@@ -69,9 +70,11 @@ class RAGChain:
             retriever=retriever,
             static_settings=static_settings,
             model=str(ai_config.get('model', 'gpt-4o')),
-            temperature=float(ai_config.get('temperature', 0.3)),
-            max_tokens=int(ai_config.get('max_tokens', 500)),
-            escalation_threshold=float(ai_config.get('escalation_threshold', static_settings.escalation_threshold)),
+            temperature=float(cast(float | int | str, ai_config.get('temperature', 0.3))),
+            max_tokens=int(cast(int | str, ai_config.get('max_tokens', 500))),
+            escalation_threshold=float(
+                cast(float | int | str, ai_config.get('escalation_threshold', static_settings.escalation_threshold))
+            ),
             clinic_name=str(bot_config.get('clinic_name', static_settings.clinic_name)),
             owned_redis=redis,
         )

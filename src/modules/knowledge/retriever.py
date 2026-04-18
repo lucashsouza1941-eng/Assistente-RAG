@@ -3,6 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass
+from typing import Any, cast
 
 from openai import AsyncOpenAI
 from redis.asyncio import Redis
@@ -21,7 +22,7 @@ class RetrievedChunk:
     content: str
     score: float
     document_title: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 class RetrieverService:
@@ -44,7 +45,7 @@ class RetrieverService:
         key = f"emb:{hashlib.sha256(query.encode()).hexdigest()}"
         cached = await self.redis.get(key)
         if cached:
-            return json.loads(cached)
+            return cast(list[float], json.loads(cached))
         resp = await self.client.embeddings.create(model='text-embedding-3-small', input=[query])
         emb = resp.data[0].embedding
         await self.redis.set(key, json.dumps(emb), ex=3600)

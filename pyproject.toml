@@ -49,7 +49,20 @@ addopts = "--cov=src --cov-report=term-missing --cov-fail-under=80"
 python_version = "3.12"
 strict = true
 warn_unused_configs = true
+explicit_package_bases = true
+namespace_packages = true
+plugins = ["pydantic.mypy"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py312"
+[tool.pydantic-mypy]
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# Testes: foco em comportamento; tipagem completa geraria ruído com fixtures e monkeypatch.
+[[tool.mypy.overrides]]
+module = "src.tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.tests.conftest"
+ignore_errors = true
+

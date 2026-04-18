@@ -11,13 +11,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import Base
 
 
-class ConversationStatus(str, enum.Enum):
+class ConversationStatus(enum.StrEnum):
     ACTIVE = 'ACTIVE'
     CLOSED = 'CLOSED'
     ESCALATED = 'ESCALATED'
 
 
-class MessageRole(str, enum.Enum):
+class MessageRole(enum.StrEnum):
     USER = 'USER'
     ASSISTANT = 'ASSISTANT'
     SYSTEM = 'SYSTEM'
@@ -44,7 +44,7 @@ class Message(Base):
     conversation_id: Mapped[UUID] = mapped_column(ForeignKey('conversations.id', ondelete='CASCADE'))
     role: Mapped[MessageRole] = mapped_column(Enum(MessageRole, name='message_role'))
     content: Mapped[str] = mapped_column(Text)
-    sources_used: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    sources_used: Mapped[list[object] | None] = mapped_column(JSONB, nullable=True)
     confidence: Mapped[float | None] = mapped_column(nullable=True)
     response_time_ms: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

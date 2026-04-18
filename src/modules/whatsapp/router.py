@@ -21,7 +21,7 @@ async def verify(
     hub_verify_token: str = Query(alias='hub.verify_token'),
     hub_challenge: str = Query(alias='hub.challenge'),
     db: AsyncSession = Depends(get_db_session),
-    settings=Depends(get_settings),
+    settings: Settings = Depends(get_settings),
 ) -> PlainTextResponse:
     expected = await resolve_whatsapp_verify_token(db, settings)
     if hub_mode == 'subscribe' and hub_verify_token == expected:

@@ -1,6 +1,8 @@
 import logging
 import sys
 import uuid
+from collections.abc import MutableMapping
+from typing import Any, cast
 
 import structlog
 
@@ -17,7 +19,7 @@ def _field_name_is_sensitive(name: str) -> bool:
 
 def _sanitize_nested(obj: object) -> object:
     if isinstance(obj, dict):
-        out: dict = {}
+        out: dict[str, Any] = {}
         for k, v in obj.items():
             if _field_name_is_sensitive(str(k)):
                 out[k] = _REDACTED
@@ -33,11 +35,18 @@ def _sanitize_nested(obj: object) -> object:
     return obj
 
 
-def sanitize_sensitive_fields(_logger, _name, event_dict):
-    return _sanitize_nested(event_dict)
+def sanitize_sensitive_fields(
+    _logger: Any, _name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
+    out = _sanitize_nested(event_dict)
+    if isinstance(out, MutableMapping):
+        return out
+    return event_dict
 
 
-def _normalize(_logger, _name, event_dict):
+def _normalize(
+    _logger: Any, _name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     event_dict['action'] = event_dict.pop('event', event_dict.get('action', 'unknown'))
     event_dict.setdefault('duration_ms', 0)
     event_dict.setdefault('metadata', {})
@@ -78,8 +87,8 @@ def configure_logging(level: str = 'INFO') -> None:
     logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO), stream=sys.stdout)
 
 
-def get_logger(module: str):
-    return structlog.get_logger(module=module)
+def get_logger(module: str) -> structlog.stdlib.BoundLogger:
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(module=module))
 
 
 def sanitize_message(value: str) -> str:

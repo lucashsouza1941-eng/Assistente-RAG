@@ -1,9 +1,10 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import Depends, FastAPI, HTTPException
 from redis.asyncio import Redis
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 
 from src.config import Settings
@@ -62,7 +63,10 @@ def create_app() -> FastAPI:
     app.include_router(metrics_router)
 
     @app.get('/health', status_code=200, responses={503: {'description': 'Dependencia indisponivel'}})
-    async def health(db=Depends(get_db_session), redis=Depends(get_redis)) -> dict[str, str]:
+    async def health(
+        db: AsyncSession = Depends(get_db_session),
+        redis: Redis = Depends(get_redis),
+    ) -> dict[str, str]:
         db_ok = redis_ok = vector_ok = False
         try:
             await db.execute(text('SELECT 1'))

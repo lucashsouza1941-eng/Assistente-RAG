@@ -8,9 +8,10 @@ Create Date: 2026-04-08 00:00:00
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = '0001_initial'
 down_revision: str | None = None
@@ -51,7 +52,7 @@ def upgrade() -> None:
         name='document_status',
         create_type=False,
     )
-    conversation_status_enum = postgresql.ENUM(
+    postgresql.ENUM(
         'ACTIVE', 'CLOSED', 'ESCALATED',
         name='conversation_status',
         create_type=False,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +10,7 @@ from src.dependencies import get_db_session
 from src.modules.settings.schemas import SettingResponse, SettingUpdate
 from src.modules.settings.service import SettingsService
 
-COMMON_AUTH_RESPONSES = {
+COMMON_AUTH_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {'description': 'API key ausente'},
     403: {'description': 'API key invalida'},
     422: {'description': 'Validacao falhou'},

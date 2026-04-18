@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import Settings
 from src.modules.knowledge.models import Document, DocumentStatus
-from src.modules.knowledge.retriever import RetrieverService
+from src.modules.knowledge.retriever import RetrievedChunk, RetrieverService
 from src.modules.knowledge.schemas import DocumentCreateRequest
 
 
@@ -37,5 +37,7 @@ class DocumentService:
         await self.db.delete(doc)
         await self.db.commit()
 
-    async def search(self, query: str, top_k: int, threshold: float, redis: Redis, settings: Settings):
+    async def search(
+        self, query: str, top_k: int, threshold: float, redis: Redis, settings: Settings
+    ) -> list[RetrievedChunk]:
         return await RetrieverService(self.db, redis, settings).search(query, top_k, threshold)

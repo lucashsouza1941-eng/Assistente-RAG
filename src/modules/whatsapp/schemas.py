@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Self
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -41,7 +43,7 @@ class WebhookPayload(BaseModel):
     message: WebhookMessage | None = None
 
     @model_validator(mode='after')
-    def extract(self):
+    def extract(self) -> Self:
         for e in self.entry:
             for c in e.changes:
                 if c.value.messages:

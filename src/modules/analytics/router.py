@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,7 @@ from src.dependencies import get_db_session
 from src.modules.analytics.schemas import CategoryPoint, KPIResponse, QuestionCount, VolumePoint
 from src.modules.analytics.service import AnalyticsService
 
-COMMON_AUTH_RESPONSES = {
+COMMON_AUTH_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {'description': 'API key ausente'},
     403: {'description': 'API key invalida'},
     422: {'description': 'Validacao falhou'},
@@ -21,7 +21,7 @@ router = APIRouter(prefix='/analytics', tags=['analytics'], dependencies=[Depend
 
 @router.get('/kpis', response_model=KPIResponse, status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
 async def kpis(db: AsyncSession = Depends(get_db_session)) -> KPIResponse:
-    return KPIResponse(**(await AnalyticsService(db).kpis()))
+    return KPIResponse.model_validate(await AnalyticsService(db).kpis())
 
 
 @router.get('/volume', response_model=list[VolumePoint], status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)

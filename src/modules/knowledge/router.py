@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Any
 from uuid import UUID, uuid4
 
 from arq.connections import ArqRedis
@@ -13,7 +14,7 @@ from src.config import Settings
 from src.core.metrics import KEY_ARQ_JOBS_ENQUEUED, incr
 from src.core.security import require_api_key
 from src.dependencies import get_arq_redis, get_db_session, get_redis, get_settings
-from src.modules.knowledge.models import Document
+from src.modules.knowledge.models import Document, DocumentType
 from src.modules.knowledge.schemas import (
     DocumentCreateRequest,
     DocumentPage,
@@ -25,7 +26,7 @@ from src.modules.knowledge.schemas import (
 from src.modules.knowledge.service import DocumentService
 from src.modules.knowledge.storage import MinioStorage
 
-COMMON_AUTH_RESPONSES = {
+COMMON_AUTH_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {'description': 'API key ausente'},
     403: {'description': 'API key invalida'},
     422: {'description': 'Validacao falhou'},
@@ -37,7 +38,7 @@ router = APIRouter(prefix='/knowledge', tags=['knowledge'], dependencies=[Depend
 @router.post('/documents', response_model=DocumentResponse, status_code=status.HTTP_202_ACCEPTED, responses={**COMMON_AUTH_RESPONSES, 409: {'description': 'Conflito: documento duplicado'}})
 async def create_document(
     title: str = Form(...),
-    type: str = Form(...),
+    type: DocumentType = Form(...),
     content_hash: str = Form(...),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db_session),

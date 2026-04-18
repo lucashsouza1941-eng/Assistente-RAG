@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import Settings
 from src.modules.chat.models import Conversation, Message, MessageRole
-from src.modules.chat.rag_chain import RAGChain
+from src.modules.chat.rag_chain import RAGChain, RAGResponse
 from src.modules.chat.schemas import PeriodFilter
 
 
@@ -19,7 +19,7 @@ class ConversationService:
         self.redis = redis
         self.settings = settings
 
-    async def send(self, message: str, conversation_id: UUID | None):
+    async def send(self, message: str, conversation_id: UUID | None) -> tuple[Conversation, RAGResponse]:
         conversation = await self._get_or_create(conversation_id)
         self.db.add(Message(conversation_id=conversation.id, role=MessageRole.USER, content=message))
         rag = await RAGChain.from_settings(self.db, self.settings)
@@ -28,7 +28,9 @@ class ConversationService:
         await self.db.commit()
         return conversation, response
 
-    async def list_conversations(self, page: int, size: int, period: PeriodFilter | None):
+    async def list_conversations(
+        self, page: int, size: int, period: PeriodFilter | None
+    ) -> tuple[list[Conversation], int]:
         stmt = select(Conversation).order_by(Conversation.started_at.desc())
         count_stmt = select(func.count(Conversation.id))
         if period is not None:

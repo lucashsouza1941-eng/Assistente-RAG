@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +9,6 @@ from src.config import Settings
 from src.core.encryption import decrypt_value, encrypt_value
 from src.dependencies import get_settings
 from src.modules.settings.models import Setting
-
 
 # Legado: chaves aglomeradas `panel_*` (painel antigo). Preferir chaves `categoria.campo` (ex.: `ai.model`, `bot.clinic_name`).
 _PANEL_KEY_CATEGORY: dict[str, str] = {
@@ -23,7 +24,7 @@ _VALID_CATEGORY_PREFIXES = frozenset({'bot', 'ai', 'whatsapp', 'notifications'})
 _SETTINGS_SECRET_KEYS = frozenset({'whatsapp.access_token', 'whatsapp.verify_token'})
 
 
-def _maybe_encrypt_stored(key: str, value: dict) -> dict:
+def _maybe_encrypt_stored(key: str, value: dict[str, Any]) -> dict[str, Any]:
     if key not in _SETTINGS_SECRET_KEYS:
         return value
     v = value.get('v')
@@ -33,7 +34,7 @@ def _maybe_encrypt_stored(key: str, value: dict) -> dict:
     return value
 
 
-def _maybe_decrypt_read(key: str, value: dict) -> dict:
+def _maybe_decrypt_read(key: str, value: dict[str, Any]) -> dict[str, Any]:
     if key not in _SETTINGS_SECRET_KEYS:
         return value
     v = value.get('v')
@@ -57,11 +58,11 @@ class SettingsService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    def value_for_api(self, key: str, value: object) -> object:
+    def value_for_api(self, key: str, value: object) -> dict[str, Any]:
         """Devolve `value` como no armazenamento interno, com segredos decifrados para o painel/API."""
         if not isinstance(value, dict):
-            return value
-        return _maybe_decrypt_read(key, value)
+            return {}
+        return _maybe_decrypt_read(key, cast(dict[str, Any], value))
 
     async def get_category(self, category: str) -> list[Setting]:
         return list((await self.db.execute(select(Setting).where(Setting.category == category))).scalars().all())
@@ -78,7 +79,7 @@ class SettingsService:
             out[key_tail] = value
         return out
 
-    async def update(self, key: str, value: dict) -> Setting:
+    async def update(self, key: str, value: dict[str, Any]) -> Setting:
         value = _maybe_encrypt_stored(key, value)
         setting = await self.db.scalar(select(Setting).where(Setting.key == key))
         if setting is None:

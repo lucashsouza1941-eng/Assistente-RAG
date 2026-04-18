@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import time
 from dataclasses import dataclass
+from typing import Any, cast
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -40,14 +41,14 @@ class MetaAPIClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def fetch_phone_number_profile(self) -> dict:
+    async def fetch_phone_number_profile(self) -> dict[str, Any]:
         """GET no recurso do número (Graph API): verified_name, display_phone_number, etc."""
         r = await self._client.get(
             self.base,
             params={'fields': 'verified_name,display_phone_number,quality_rating,messaging_limit_tier'},
         )
         r.raise_for_status()
-        return r.json()
+        return cast(dict[str, Any], r.json())
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
     async def send_text_message(self, to: str, text: str) -> MessageResponse:
@@ -59,7 +60,9 @@ class MetaAPIClient:
         return MessageResponse(message_id=mid, status_code=r.status_code)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
-    async def send_template_message(self, to: str, template_name: str, components: list) -> MessageResponse:
+    async def send_template_message(
+        self, to: str, template_name: str, components: list[dict[str, Any]]
+    ) -> MessageResponse:
         start = time.perf_counter()
         r = await self._client.post(f'{self.base}/messages', json={'messaging_product': 'whatsapp', 'to': to, 'type': 'template', 'template': {'name': template_name, 'language': {'code': 'pt_BR'}, 'components': components}})
         r.raise_for_status()

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import shutil
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from arq import cron
@@ -19,9 +20,9 @@ log = get_logger(module='workers.cleanup')
 settings = get_settings()
 
 
-async def cleanup_job(ctx: dict) -> dict:
+async def cleanup_job(ctx: dict[str, Any]) -> dict[str, int]:
     try:
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         cutoff_conversation = now_utc - timedelta(hours=24)
         cutoff_tmp = time.time() - 3600
 

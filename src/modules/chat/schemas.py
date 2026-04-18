@@ -2,6 +2,7 @@
 
 import enum
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -9,7 +10,7 @@ from src.modules.chat.models import ConversationStatus, MessageRole
 from src.schemas.pagination import Page
 
 
-class PeriodFilter(str, enum.Enum):
+class PeriodFilter(enum.StrEnum):
     TODAY = 'today'
     DAYS_7 = '7d'
     DAYS_30 = '30d'
@@ -22,7 +23,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
-    sources: list[dict]
+    sources: list[dict[str, Any]]
     confidence: float
     escalated: bool
     conversation_id: str

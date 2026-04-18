@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from docx import Document as DocxDocument
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -18,7 +19,7 @@ log = get_logger(module='knowledge.chunking')
 class ChunkData:
     content: str
     chunk_index: int
-    metadata: dict
+    metadata: dict[str, Any]
     token_count: int
 
 
@@ -48,7 +49,7 @@ class TextChunker:
         log.info('chunking.completed', metadata={'document_id': document_id, 'total_chunks': len(chunks), 'avg_token_count': round(avg, 2)})
         return chunks
 
-    def _extract(self, file_path: Path, content_type: str) -> list[dict]:
+    def _extract(self, file_path: Path, content_type: str) -> list[dict[str, Any]]:
         ct = content_type.lower().split(';')[0].strip()
 
         if ct == 'application/pdf':

@@ -2,6 +2,7 @@
 
 import enum
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
@@ -12,14 +13,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import Base
 
 
-class DocumentType(str, enum.Enum):
+class DocumentType(enum.StrEnum):
     PROCEDURE = 'PROCEDURE'
     FAQ = 'FAQ'
     PROTOCOL = 'PROTOCOL'
     GENERAL = 'GENERAL'
 
 
-class DocumentStatus(str, enum.Enum):
+class DocumentStatus(enum.StrEnum):
     PENDING = 'PENDING'
     PROCESSING = 'PROCESSING'
     INDEXED = 'INDEXED'
@@ -54,7 +55,7 @@ class DocumentChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float]] = mapped_column(Vector(1536))
     chunk_index: Mapped[int]
-    metadata_: Mapped[dict] = mapped_column(JSONB, name='metadata')
+    metadata_: Mapped[dict[str, Any]] = mapped_column(JSONB, name='metadata')
     token_count: Mapped[int]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

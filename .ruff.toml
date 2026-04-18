@@ -1,13 +1,28 @@
-﻿line-length = 100
-target-version = 'py311'
+﻿line-length = 120
+target-version = "py312"
+
+extend-exclude = [
+  "node_modules",
+  ".next",
+  ".venv",
+  "venv",
+]
 
 [lint]
-select = ['E', 'F', 'I', 'N', 'UP', 'ANN']
+select = ["E", "F", "I", "N", "UP", "ANN"]
+# Prompts longos, queries SQLAlchemy e metadata de structlog excedem 120 com frequência;
+# o limite continua como guia para formatação manual sem falhar o CI por linhas únicas.
+ignore = ["E501"]
 
 [lint.per-file-ignores]
-# `DATABASE_URL` / `REDIS_URL` must be set before importing `src.*`
-"src/tests/conftest.py" = ["E402", "ANN", "E501"]
-"src/tests/integration/test_rag_pipeline_e2e.py" = ["ANN", "E501"]
-"src/tests/integration/test_whatsapp_webhook.py" = ["ANN", "E501"]
-"src/modules/knowledge/router.py" = ["E501"]
+# Imports de modelos só para registrar tabelas no `Base.metadata` (Alembic).
+"alembic/**/*.py" = ["F401"]
 
+# Testes pytest: anotações completas pouco ajudam e geram ruído com ANN.
+"src/tests/**" = ["ANN"]
+
+# `DATABASE_URL` / `REDIS_URL` devem existir antes de importar `src.*`
+"src/tests/conftest.py" = ["E402", "ANN"]
+
+# Processadores structlog seguem a API (logger, name, event_dict); `Any` é idiomático aqui.
+"src/core/logging.py" = ["ANN401"]
