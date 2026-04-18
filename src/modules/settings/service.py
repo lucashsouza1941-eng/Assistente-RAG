@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import Settings
+from src.core.encryption import decrypt_value, encrypt_value
+from src.dependencies import get_settings
 from src.modules.settings.models import Setting
 
 
@@ -16,6 +18,29 @@ _PANEL_KEY_CATEGORY: dict[str, str] = {
 }
 
 _VALID_CATEGORY_PREFIXES = frozenset({'bot', 'ai', 'whatsapp', 'notifications'})
+
+# Segredos WhatsApp em `settings.value` (JSONB): cifrados em repouso; IDs públicos ficam em claro.
+_SETTINGS_SECRET_KEYS = frozenset({'whatsapp.access_token', 'whatsapp.verify_token'})
+
+
+def _maybe_encrypt_stored(key: str, value: dict) -> dict:
+    if key not in _SETTINGS_SECRET_KEYS:
+        return value
+    v = value.get('v')
+    if isinstance(v, str) and v:
+        key_mat = get_settings().settings_encryption_key
+        return {**value, 'v': encrypt_value(v, key_mat)}
+    return value
+
+
+def _maybe_decrypt_read(key: str, value: dict) -> dict:
+    if key not in _SETTINGS_SECRET_KEYS:
+        return value
+    v = value.get('v')
+    if isinstance(v, str) and v:
+        key_mat = get_settings().settings_encryption_key
+        return {**value, 'v': decrypt_value(v, key_mat)}
+    return value
 
 
 def _category_for_new_key(key: str) -> str:
@@ -32,6 +57,12 @@ class SettingsService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
+    def value_for_api(self, key: str, value: object) -> object:
+        """Devolve `value` como no armazenamento interno, com segredos decifrados para o painel/API."""
+        if not isinstance(value, dict):
+            return value
+        return _maybe_decrypt_read(key, value)
+
     async def get_category(self, category: str) -> list[Setting]:
         return list((await self.db.execute(select(Setting).where(Setting.category == category))).scalars().all())
 
@@ -40,11 +71,15 @@ class SettingsService:
         out: dict[str, object] = {}
         for item in items:
             key_tail = item.key.split('.', 1)[1] if item.key.startswith(f'{category}.') and '.' in item.key else item.key
-            value = item.value.get('v') if isinstance(item.value, dict) and 'v' in item.value else item.value
+            raw = item.value
+            if isinstance(raw, dict):
+                raw = _maybe_decrypt_read(item.key, raw)
+            value = raw.get('v') if isinstance(raw, dict) and 'v' in raw else raw
             out[key_tail] = value
         return out
 
     async def update(self, key: str, value: dict) -> Setting:
+        value = _maybe_encrypt_stored(key, value)
         setting = await self.db.scalar(select(Setting).where(Setting.key == key))
         if setting is None:
             category = _category_for_new_key(key)

@@ -11,6 +11,8 @@ _TEST_DB = os.getenv('TEST_DATABASE_URL', _DEFAULT_TEST_DB)
 _TEST_REDIS = os.getenv('TEST_REDIS_URL', _DEFAULT_TEST_REDIS)
 os.environ.setdefault('DATABASE_URL', _TEST_DB)
 os.environ.setdefault('REDIS_URL', _TEST_REDIS)
+# Chave Fernet fixa para testes (deve existir antes de importar `src.dependencies`).
+os.environ.setdefault('SETTINGS_ENCRYPTION_KEY', 'dKO0Il_vW_x2eWA1zCeUACKBUzKfey_ne5la1BMSLjA=')
 
 TEST_DATABASE_URL = _TEST_DB
 TEST_REDIS_URL = _TEST_REDIS

@@ -19,6 +19,7 @@ $env:WHATSAPP_VERIFY_TOKEN = 'verify-local'
 $env:WHATSAPP_APP_SECRET = 'fake-secret-local'
 $env:HASH_SALT = 'fake-salt-32-chars-for-local-only!!'
 $env:API_KEY = 'fake-api-key-local'
+$env:SETTINGS_ENCRYPTION_KEY = 'dKO0Il_vW_x2eWA1zCeUACKBUzKfey_ne5la1BMSLjA='
 $env:CLINIC_NAME = 'Clinica Teste Local'
 
 Write-Host "OK: DATABASE_URL, REDIS_URL, TEST_*, credenciais de teste definidas."

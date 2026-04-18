@@ -32,3 +32,37 @@ async def test_update_setting(async_session):
 async def test_update_nonexistent_key(async_session):
     with pytest.raises(ValueError, match='nao_existe'):
         await SettingsService(async_session).update('nao_existe', {'x': 1})
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_access_token_encrypted_at_rest(async_session):
+    plain = 'graph-token-plain'
+    s = await SettingsService(async_session).update('whatsapp.access_token', {'v': plain})
+    await async_session.refresh(s)
+    raw = s.value['v']
+    assert isinstance(raw, str)
+    assert raw.startswith('OBENC1:')
+    assert raw != plain
+
+    vals = await SettingsService(async_session).get_category_values('whatsapp')
+    assert vals['access_token'] == plain
+
+    svc = SettingsService(async_session)
+    assert svc.value_for_api('whatsapp.access_token', s.value)['v'] == plain
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_phone_number_id_not_encrypted(async_session):
+    s = await SettingsService(async_session).update('whatsapp.phone_number_id', {'v': '123456789'})
+    assert s.value['v'] == '123456789'
+
+
+@pytest.mark.asyncio
+async def test_legacy_plain_whatsapp_token_still_readable(async_session):
+    async_session.add(
+        Setting(key='whatsapp.verify_token', category='whatsapp', value={'v': 'legacy-verify-plain'}),
+    )
+    await async_session.commit()
+
+    vals = await SettingsService(async_session).get_category_values('whatsapp')
+    assert vals['verify_token'] == 'legacy-verify-plain'

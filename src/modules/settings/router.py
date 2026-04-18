@@ -23,16 +23,21 @@ _VALID_CATEGORIES = frozenset({'bot', 'ai', 'whatsapp', 'notifications'})
 async def category(category: str, db: AsyncSession = Depends(get_db_session)) -> list[SettingResponse]:
     if category not in _VALID_CATEGORIES:
         raise HTTPException(status_code=404, detail=f'Categoria invalida: {category}')
-    items = await SettingsService(db).get_category(category)
+    svc = SettingsService(db)
+    items = await svc.get_category(category)
     if not items:
         raise HTTPException(status_code=404, detail=f'Nenhuma configuracao encontrada para a categoria {category}')
-    return [SettingResponse(id=i.id, key=i.key, value=i.value, category=i.category) for i in items]
+    return [
+        SettingResponse(id=i.id, key=i.key, value=svc.value_for_api(i.key, i.value), category=i.category)
+        for i in items
+    ]
 
 
 @router.put('/{key}', response_model=SettingResponse, status_code=status.HTTP_200_OK, responses=COMMON_AUTH_RESPONSES)
 async def update(key: str, payload: SettingUpdate, db: AsyncSession = Depends(get_db_session)) -> SettingResponse:
+    svc = SettingsService(db)
     try:
-        s = await SettingsService(db).update(key, payload.value)
+        s = await svc.update(key, payload.value)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return SettingResponse(id=s.id, key=s.key, value=s.value, category=s.category)
+    return SettingResponse(id=s.id, key=s.key, value=svc.value_for_api(s.key, s.value), category=s.category)

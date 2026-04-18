@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     hash_salt: str = Field(..., alias='HASH_SALT')
     api_key: str = Field(..., alias='API_KEY')
+    settings_encryption_key: str = Field(..., alias='SETTINGS_ENCRYPTION_KEY')
 
     clinic_name: str = Field(default='Clinica OdontoVida', alias='CLINIC_NAME')
     escalation_threshold: float = Field(default=0.70, alias='ESCALATION_THRESHOLD')
