@@ -6,7 +6,7 @@ from src.modules.chat.models import Conversation, ConversationStatus, Message, M
 from src.modules.knowledge.models import Document, DocumentChunk, DocumentStatus, DocumentType
 
 
-class DocumentFactory(factory.Factory):
+class DocumentFactory(factory.Factory):  # type: ignore[misc]  # factory_boy expõe base dinâmica sem tipos estáticos.
     class Meta:
         model = Document
 
@@ -18,7 +18,7 @@ class DocumentFactory(factory.Factory):
     chunks_count = 3
 
 
-class DocumentChunkFactory(factory.Factory):
+class DocumentChunkFactory(factory.Factory):  # type: ignore[misc]  # factory_boy expõe base dinâmica sem tipos estáticos.
     class Meta:
         model = DocumentChunk
 
@@ -29,7 +29,7 @@ class DocumentChunkFactory(factory.Factory):
     token_count = 20
 
 
-class ConversationFactory(factory.Factory):
+class ConversationFactory(factory.Factory):  # type: ignore[misc]  # factory_boy expõe base dinâmica sem tipos estáticos.
     class Meta:
         model = Conversation
 
@@ -37,7 +37,7 @@ class ConversationFactory(factory.Factory):
     status = ConversationStatus.ACTIVE
 
 
-class MessageFactory(factory.Factory):
+class MessageFactory(factory.Factory):  # type: ignore[misc]  # factory_boy expõe base dinâmica sem tipos estáticos.
     class Meta:
         model = Message
 

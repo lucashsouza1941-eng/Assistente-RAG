@@ -57,12 +57,10 @@ plugins = ["pydantic.mypy"]
 init_typed = true
 warn_required_dynamic_aliases = true
 
-# Testes: foco em comportamento; tipagem completa geraria ruído com fixtures e monkeypatch.
+# Decisao: `src/tests/` segue coberto por mypy (sem `ignore_errors`), mas sem exigir
+# anotacao em toda funcao de teste/fixture (`disallow_untyped_defs = false`) para reduzir
+# ruido; erros de tipo reais (arg-type, assignment, etc.) continuam bloqueando CI.
 [[tool.mypy.overrides]]
 module = "src.tests.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "src.tests.conftest"
-ignore_errors = true
+disallow_untyped_defs = false
 

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, production]
 
 jobs:
   test-backend:
@@ -90,19 +90,55 @@ jobs:
         env:
           NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
           NEXTAUTH_URL: http://localhost:3000
+          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
         run: pnpm build
         working-directory: .
-      - name: Start Next.js and run Playwright
+      - name: Start Next.js and run Playwright smoke
         env:
           NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
           NEXTAUTH_URL: http://localhost:3000
+          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
           PORT: "3000"
         run: |
           set -e
           pnpm start &
           npx --yes wait-on@7 http://127.0.0.1:3000 --timeout 120000
           pnpm exec playwright install --with-deps
-          pnpm exec playwright test
+          pnpm run test:e2e:smoke
+        working-directory: .
+
+  e2e-critical-paths:
+    if: github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'production')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install -g pnpm
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+      - name: Build Next.js
+        env:
+          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
+          NEXTAUTH_URL: http://localhost:3000
+          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
+        run: pnpm build
+        working-directory: .
+      - name: Start Next.js and run Playwright critical paths
+        env:
+          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
+          NEXTAUTH_URL: http://localhost:3000
+          E2E_ADMIN_PASSWORD: admin123
+          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
+          PORT: "3000"
+        run: |
+          set -e
+          pnpm start &
+          npx --yes wait-on@7 http://127.0.0.1:3000 --timeout 120000
+          pnpm exec playwright install --with-deps
+          pnpm run test:e2e:critical
         working-directory: .
 
   dependency-audit:

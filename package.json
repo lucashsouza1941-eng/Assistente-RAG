@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test tests/e2e/smoke.spec.ts",
+    "test:e2e:critical": "playwright test tests/e2e/critical-paths.spec.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

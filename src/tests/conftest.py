@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
+from typing import Any
 
 # Bootstrap antes de importar `src.*` para alinhar DATABASE_URL/REDIS_URL ao stack de teste
 # (AsyncSessionLocal e get_settings() usam essas variáveis ao carregar o módulo).
@@ -47,7 +48,7 @@ async def redis_client() -> AsyncGenerator[Redis, None]:
 
 
 @pytest.fixture
-def mock_openai(monkeypatch):
+def mock_openai(monkeypatch: pytest.MonkeyPatch) -> None:
     class _EmbItem:
         embedding = [0.1] * 1536
 
@@ -55,7 +56,7 @@ def mock_openai(monkeypatch):
         data = [_EmbItem()]
 
     class _Embeddings:
-        async def create(self, *args, **kwargs):
+        async def create(self, *args: Any, **kwargs: Any) -> _EmbRes:
             return _EmbRes()
 
     class _OpenAI:
@@ -66,21 +67,21 @@ def mock_openai(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_minio_storage(monkeypatch):
+def mock_minio_storage(monkeypatch: pytest.MonkeyPatch) -> None:
     storage: dict[str, bytes] = {}
 
-    async def _ensure_bucket(self):
+    async def _ensure_bucket(self: Any) -> None:
         return None
 
-    async def _upload_bytes(self, object_name: str, content: bytes, content_type: str | None = None):
+    async def _upload_bytes(self: Any, object_name: str, content: bytes, content_type: str | None = None) -> None:
         storage[object_name] = content
 
-    async def _download_bytes(self, object_name: str) -> bytes:
+    async def _download_bytes(self: Any, object_name: str) -> bytes:
         if object_name not in storage:
             raise FileNotFoundError(object_name)
         return storage[object_name]
 
-    async def _exists(self, object_name: str) -> bool:
+    async def _exists(self: Any, object_name: str) -> bool:
         return object_name in storage
 
     monkeypatch.setattr('src.modules.knowledge.storage.MinioStorage.ensure_bucket', _ensure_bucket)
@@ -90,8 +91,8 @@ def mock_minio_storage(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_meta_api_factory(monkeypatch):
-    async def _mk(_db, _settings):
+def mock_meta_api_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _mk(_db: Any, _settings: Any) -> "_MetaAPIStub":
         return _MetaAPIStub()
 
     # `from factory import create_meta_api_client` copia a referência; patch onde o nome é usado.
@@ -107,7 +108,7 @@ class _MetaAPIStub:
     async def aclose(self) -> None:
         return None
 
-    async def fetch_phone_number_profile(self) -> dict:
+    async def fetch_phone_number_profile(self) -> dict[str, str]:
         """Usado por GET /whatsapp/admin/connection — evita HTTP à Graph API nos testes."""
         return {
             'id': 'stub-phone-id',
@@ -117,25 +118,25 @@ class _MetaAPIStub:
             'messaging_limit_tier': 'TIER_1',
         }
 
-    async def send_text_message(self, to: str, text: str):
+    async def send_text_message(self, to: str, text: str) -> None:
         return None
 
-    async def mark_as_read(self, message_id: str):
+    async def mark_as_read(self, message_id: str) -> None:
         return None
 
 
 @pytest_asyncio.fixture
-async def client(async_session: AsyncSession, redis_client: Redis, mock_openai) -> AsyncGenerator[AsyncClient, None]:
+async def client(async_session: AsyncSession, redis_client: Redis, mock_openai: None) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
     app.state.redis_client = redis_client
 
-    async def _db_override():
+    async def _db_override() -> AsyncGenerator[AsyncSession, None]:
         yield async_session
 
-    async def _redis_override():
+    async def _redis_override() -> Redis:
         return redis_client
 
-    async def _arq_override():
+    async def _arq_override() -> AsyncGenerator[Any, None]:
         pool = await create_pool(RedisSettings.from_dsn(TEST_REDIS_URL))
         try:
             yield pool
