@@ -12,7 +12,7 @@ O OdontoBot e um monorepo que combina:
 ## Pre-requisitos
 
 - **Docker 24+** e **Docker Compose v2**
-- **Node.js 18+** e **pnpm**
+- **Node.js 20+** e **pnpm** (alinhado ao **Next.js 16**, ao CI em `.github/workflows/ci.yml` e ao `Dockerfile.frontend`)
 - Conta **OpenAI** com API key
 - **App Meta** com **WhatsApp Cloud API** configurada
 
@@ -108,6 +108,8 @@ curl http://localhost:8000/health
 ### 4. Subir frontend (Next.js)
 
 Neste repositorio o painel Next.js fica na **raiz** (pastas `app/`, `components/`), nao em uma subpasta `frontend`.
+
+Instale **Node.js 20 ou superior** (use `node -v` para confirmar). Versões anteriores nao sao suportadas pelo Next.js 16 usado neste projeto.
 
 Copie `.env.local.example` para **`.env.local`** e preencha `API_URL`, `API_KEY` (mesma chave do backend), `ADMIN_PASSWORD` (hash bcrypt da senha do painel), `NEXTAUTH_SECRET` e `NEXTAUTH_URL` (ex.: `http://localhost:3000`).
 

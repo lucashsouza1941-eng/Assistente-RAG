@@ -83,6 +83,9 @@ jobs:
       - name: Lint frontend
         run: pnpm lint
         working-directory: .
+      - name: Unit tests (Vitest)
+        run: pnpm run test:unit
+        working-directory: .
       - name: Build Next.js
         env:
           NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
