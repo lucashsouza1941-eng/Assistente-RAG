@@ -104,3 +104,40 @@ jobs:
           pnpm exec playwright install --with-deps
           pnpm exec playwright test
         working-directory: .
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Export locked requirements from uv.lock (pip-audit input)
+        run: uv export --frozen --no-dev -o requirements-audit.txt
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit and cvss (CVSS scoring for OSV severities)
+        run: python -m pip install --upgrade pip pip-audit cvss
+
+      - name: pip-audit — fail only on high/critical (CVSS base ≥ 7.0 via OSV)
+        run: python scripts/ci/pip_audit_high_gate.py requirements-audit.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: pnpm audit — fail on high or critical
+        run: pnpm audit --audit-level=high
+        working-directory: .

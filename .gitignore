@@ -18,6 +18,9 @@ node_modules
 .next/
 .DS_Store
 
+# CI artefact (uv export for pip-audit)
+requirements-audit.txt
+
 # Playwright
 /test-results/
 /playwright-report/
