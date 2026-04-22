@@ -44,19 +44,19 @@ jobs:
         run: uv run mypy src/ --ignore-missing-imports
       - name: Run tests
         env:
-          TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot
-          TEST_REDIS_URL: redis://localhost:6380/0
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/test_odontobot
-          REDIS_URL: redis://localhost:6380/0
-          OPENAI_API_KEY: sk-test-fake-key-for-ci
-          WHATSAPP_ACCESS_TOKEN: fake-token-for-ci
-          WHATSAPP_PHONE_NUMBER_ID: "123456789"
-          WHATSAPP_VERIFY_TOKEN: verify-ci
-          WHATSAPP_APP_SECRET: fake-secret-for-ci
-          HASH_SALT: fake-salt-32-chars-for-ci-only!!
-          API_KEY: fake-api-key-for-ci
-          SETTINGS_ENCRYPTION_KEY: dKO0Il_vW_x2eWA1zCeUACKBUzKfey_ne5la1BMSLjA=
-          CLINIC_NAME: Clínica Teste CI
+          TEST_DATABASE_URL: ${{ vars.CI_TEST_DATABASE_URL }}
+          TEST_REDIS_URL: ${{ vars.CI_TEST_REDIS_URL }}
+          DATABASE_URL: ${{ vars.CI_DATABASE_URL }}
+          REDIS_URL: ${{ vars.CI_REDIS_URL }}
+          OPENAI_API_KEY: ${{ secrets.CI_OPENAI_API_KEY }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.CI_WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ vars.CI_WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.CI_WHATSAPP_VERIFY_TOKEN }}
+          WHATSAPP_APP_SECRET: ${{ secrets.CI_WHATSAPP_APP_SECRET }}
+          HASH_SALT: ${{ secrets.CI_HASH_SALT }}
+          API_KEY: ${{ secrets.CI_API_KEY }}
+          SETTINGS_ENCRYPTION_KEY: ${{ secrets.CI_SETTINGS_ENCRYPTION_KEY }}
+          CLINIC_NAME: ${{ vars.CI_CLINIC_NAME }}
         run: uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 
   build-docker:
@@ -88,16 +88,16 @@ jobs:
         working-directory: .
       - name: Build Next.js
         env:
-          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
-          NEXTAUTH_URL: http://localhost:3000
-          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
+          NEXTAUTH_SECRET: ${{ secrets.CI_NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ vars.CI_NEXTAUTH_URL }}
+          ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD_HASH }}
         run: pnpm build
         working-directory: .
       - name: Start Next.js and run Playwright smoke
         env:
-          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
-          NEXTAUTH_URL: http://localhost:3000
-          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
+          NEXTAUTH_SECRET: ${{ secrets.CI_NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ vars.CI_NEXTAUTH_URL }}
+          ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD_HASH }}
           PORT: "3000"
         run: |
           set -e
@@ -121,17 +121,17 @@ jobs:
         working-directory: .
       - name: Build Next.js
         env:
-          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
-          NEXTAUTH_URL: http://localhost:3000
-          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
+          NEXTAUTH_SECRET: ${{ secrets.CI_NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ vars.CI_NEXTAUTH_URL }}
+          ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD_HASH }}
         run: pnpm build
         working-directory: .
       - name: Start Next.js and run Playwright critical paths
         env:
-          NEXTAUTH_SECRET: ci-e2e-nextauth-secret-at-least-32-chars
-          NEXTAUTH_URL: http://localhost:3000
-          E2E_ADMIN_PASSWORD: admin123
-          ADMIN_PASSWORD: $2a$10$34gzKfuiRdxoioQYf/IgReRkZWeTy34HiV4BSEdz9HDirzsQVWpmW
+          NEXTAUTH_SECRET: ${{ secrets.CI_NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ vars.CI_NEXTAUTH_URL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.CI_E2E_ADMIN_PASSWORD }}
+          ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD_HASH }}
           PORT: "3000"
         run: |
           set -e

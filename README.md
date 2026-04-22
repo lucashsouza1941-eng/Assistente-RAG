@@ -26,7 +26,7 @@ Definicoes completas alinhadas a `src/config.py` estao em `.env.example`. A tabe
 
 | Variavel | Descricao | Exemplo | Obrigatoria |
 | -------- | --------- | ------- | ----------- |
-| `CORS_ORIGINS` | Origens CORS (lista separada por virgula). | `http://localhost:3000` | Nao (default no codigo) |
+| `ALLOWED_ORIGINS` | Origens CORS permitidas (lista separada por virgula). Em producao, deve ser explicita (sem `*`). | `https://painel.sua-clinica.com` | Sim em producao |
 | `DATABASE_URL` | URL async PostgreSQL + asyncpg. No Docker, hostname `postgres`. | `postgresql+asyncpg://user:pass@postgres:5432/odontobot` | Sim |
 | `REDIS_URL` | Redis (cache, rate limit, ARQ, metricas). No Docker, hostname `redis`. | `redis://redis:6379/0` | Sim |
 | `OPENAI_API_KEY` | Chave OpenAI (embeddings e RAG). | `sk-...` | Sim |
@@ -221,3 +221,14 @@ components/
 - **Numeros WhatsApp** nao sao armazenados em claro: usa-se hash **SHA-256 com salt** (`HASH_SALT`) para identificacao em base de dados e em logs onde aplicavel.
 - **Alembic** no **entrypoint** do contentor `app` facilita desenvolvimento local com Docker; em **producao** prefira um **job separado** ou **init container** so para migracoes.
 - **Migracao em producao:** executar `alembic upgrade head` como **init container** (ou Job Kubernetes) **antes** de subir replicas da aplicacao, para evitar corridas e falhas em health checks.
+
+## Seguranca
+
+- **CORS explicito:** use `ALLOWED_ORIGINS` com domínios exatos; em `ENVIRONMENT=production` o backend rejeita wildcard (`*`).
+- **Rate limit por escopo:** o middleware aplica limites separados por IP para:
+  - `global` (rotas gerais),
+  - `admin` (`/settings`, `/metrics`, `/whatsapp/admin`),
+  - `webhook` (`/whatsapp/webhook`).
+- **Configuracao de rate limit por ambiente:** ajuste `RATE_LIMIT_GLOBAL_PER_MINUTE`, `RATE_LIMIT_ADMIN_PER_MINUTE` e `RATE_LIMIT_WEBHOOK_PER_MINUTE` no `.env`.
+- **Proxy reverso:** habilite `TRUST_PROXY=true` apenas atrás de proxy confiável para usar `X-Forwarded-For` no rate limit.
+- **Segredos no CI:** workflows em `.github/workflows/ci.yml` devem ler segredos apenas via `GitHub Secrets`/`Repository Variables` (sem valores reais hardcoded no YAML).

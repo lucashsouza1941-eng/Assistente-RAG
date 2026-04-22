@@ -9,9 +9,9 @@ class Settings(BaseSettings):
         extra='ignore',
     )
 
-    cors_origins: list[str] = Field(
+    allowed_origins: list[str] = Field(
         default_factory=lambda: ['http://localhost:3000'],
-        alias='CORS_ORIGINS',
+        alias='ALLOWED_ORIGINS',
     )
     database_url: str = Field(..., alias='DATABASE_URL')
     redis_url: str = Field(..., alias='REDIS_URL')
@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     clinic_name: str = Field(default='Clinica OdontoVida', alias='CLINIC_NAME')
     escalation_threshold: float = Field(default=0.70, alias='ESCALATION_THRESHOLD')
     trust_proxy: bool = Field(default=False, alias='TRUST_PROXY')
+    rate_limit_global_per_minute: int = Field(default=100, alias='RATE_LIMIT_GLOBAL_PER_MINUTE')
+    rate_limit_admin_per_minute: int = Field(default=30, alias='RATE_LIMIT_ADMIN_PER_MINUTE')
+    rate_limit_webhook_per_minute: int = Field(default=120, alias='RATE_LIMIT_WEBHOOK_PER_MINUTE')
     log_level: str = Field(default='INFO', alias='LOG_LEVEL')
     environment: str = Field(default='development', alias='ENVIRONMENT')
     service_name: str = Field(default='odontobot-api', alias='SERVICE_NAME')
@@ -40,7 +43,7 @@ class Settings(BaseSettings):
     # URL pública da API (ex.: https://api.exemplo.com) para montar o callback do webhook no painel
     public_api_base_url: str | None = Field(default=None, alias='PUBLIC_API_BASE_URL')
 
-    @field_validator('cors_origins', mode='before')
+    @field_validator('allowed_origins', mode='before')
     @classmethod
     def parse_cors_origins(cls, v: object) -> list[str]:
         if v is None or v == '':
@@ -50,3 +53,13 @@ class Settings(BaseSettings):
         if isinstance(v, list):
             return [str(x).strip() for x in v if str(x).strip()]
         return ['http://localhost:3000']
+
+    @field_validator('allowed_origins')
+    @classmethod
+    def validate_allowed_origins(cls, v: list[str], info: object) -> list[str]:
+        # Em produção, não permitir wildcard para evitar exposição CORS ampla.
+        data = getattr(info, "data", {}) if info is not None else {}
+        environment = str(data.get("environment", "development")).lower()
+        if environment in {"production", "prod"} and "*" in v:
+            raise ValueError("ALLOWED_ORIGINS não pode conter '*' em produção.")
+        return v

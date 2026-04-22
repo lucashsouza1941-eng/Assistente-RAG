@@ -43,9 +43,15 @@ def _normalized_path(path: str) -> str:
     return p if p.startswith('/') else f'/{p}'
 
 
-def _is_rate_limit_excluded(path: str) -> bool:
+def _rate_limit_scope(path: str) -> str | None:
     p = _normalized_path(path)
-    return p in ('/health', '/whatsapp/webhook', '/metrics')
+    if p == '/health':
+        return None
+    if p == '/whatsapp/webhook':
+        return 'webhook'
+    if p.startswith('/settings') or p.startswith('/metrics') or p.startswith('/whatsapp/admin'):
+        return 'admin'
+    return 'global'
 
 
 def get_client_ip(request: Request) -> str:
@@ -60,16 +66,16 @@ def get_client_ip(request: Request) -> str:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Limite global: 100 req/min por IP (Redis). Exclui /health e /whatsapp/webhook."""
+    """Rate limit por escopo (global/admin/webhook) com contadores isolados."""
 
-    LIMIT = 100
     WINDOW_SEC = 60
     KEY_PREFIX = 'rate_limit'
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if _is_rate_limit_excluded(request.url.path):
+        scope = _rate_limit_scope(request.url.path)
+        if scope is None:
             return await call_next(request)
 
         redis = getattr(request.app.state, 'redis_client', None)
@@ -79,7 +85,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         ip = get_client_ip(request)
         minute_window = int(time.time() // self.WINDOW_SEC)
-        key = f'{self.KEY_PREFIX}:{ip}:{minute_window}'
+        key = f'{self.KEY_PREFIX}:{scope}:{ip}:{minute_window}'
+        app_settings = getattr(request.app.state, 'settings', None)
+        global_limit = int(getattr(app_settings, 'rate_limit_global_per_minute', 100))
+        admin_limit = int(getattr(app_settings, 'rate_limit_admin_per_minute', 30))
+        webhook_limit = int(getattr(app_settings, 'rate_limit_webhook_per_minute', 120))
+        if scope == 'admin':
+            limit = admin_limit
+        elif scope == 'webhook':
+            limit = webhook_limit
+        else:
+            limit = global_limit
 
         try:
             count = await redis.incr(key)
@@ -92,11 +108,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
             return await call_next(request)
 
-        if count > self.LIMIT:
+        if count > limit:
             retry_after = max(1, self.WINDOW_SEC - int(time.time()) % self.WINDOW_SEC)
             return JSONResponse(
                 status_code=429,
-                content={'detail': 'Too many requests'},
+                content={'detail': f'Too many requests ({scope})'},
                 headers={'Retry-After': str(retry_after)},
             )
 
