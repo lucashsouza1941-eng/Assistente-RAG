@@ -167,6 +167,12 @@ pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 
 **Nota:** pare o `docker compose` principal se a porta do Postgres de testes conflitar no host, ou ajuste portas e variaveis. Volte a definir `DATABASE_URL` para o ambiente normal antes de subir a API.
 
+## CI/CD (GitHub Actions)
+
+O pipeline está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (backend: lint, mypy, pytest, build Docker; frontend: lint, Vitest, build Next, Playwright smoke e, em PRs para `main`/`production`, suite crítica).
+
+Configure **Secrets** e **Variables** do repositório sem hardcodar valores no YAML. Lista de nomes exatos, tipo (Secret vs Variable) e descrição: [`.github/CI_SECRETS.md`](.github/CI_SECRETS.md).
+
 ## Estrutura do projeto
 
 ### Backend (`src/`)
@@ -239,4 +245,4 @@ components/
   - `webhook` (`/whatsapp/webhook`).
 - **Configuracao de rate limit por ambiente:** ajuste `RATE_LIMIT_GLOBAL_PER_MINUTE`, `RATE_LIMIT_ADMIN_PER_MINUTE` e `RATE_LIMIT_WEBHOOK_PER_MINUTE` no `.env`.
 - **Proxy reverso:** habilite `TRUST_PROXY=true` apenas atrás de proxy confiável para usar `X-Forwarded-For` no rate limit.
-- **Segredos no CI:** workflows em `.github/workflows/ci.yml` devem ler segredos apenas via `GitHub Secrets`/`Repository Variables` (sem valores reais hardcoded no YAML).
+- **Segredos no CI:** ver [`.github/CI_SECRETS.md`](.github/CI_SECRETS.md) e a secção **CI/CD (GitHub Actions)** mais acima neste README.
