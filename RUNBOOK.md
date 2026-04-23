@@ -185,6 +185,39 @@ curl -i "https://<API_PUBLICA>/whatsapp/webhook?hub.mode=subscribe&hub.verify_to
 
 ---
 
+## Rate limit e Redis
+
+### Comportamento atual (Redis indisponivel no middleware)
+
+O `RateLimitMiddleware` usa o cliente Redis em `app.state.redis_client` para contar pedidos por IP e escopo (`global`, `admin`, `webhook`).
+
+- **Se `redis_client` nao estiver no `app.state`:** o middleware regista um evento **`rate_limit_skipped`** em nivel **critical**, com `reason=redis_client_missing`, `ip` e `path`, e **deixa a requisicao passar** (**fail-open**): nao ha rate limit ate o estado da aplicacao voltar a incluir o cliente Redis.
+- **Se o Redis falhar durante `incr`/`expire`:** o middleware regista `rate_limit_redis_error` e tambem **fail-open** (requisicao segue sem limite).
+
+Isto prioriza **disponibilidade** da API em incidentes de Redis; a contrapartida e **menos protecao** contra abuso enquanto o limite estiver inativo.
+
+### Como monitorar
+
+- **Logs agregados:** alertar quando aparecerem picos de `rate_limit_skipped` com `reason=redis_client_missing` (ou taxa > 0 em producao).
+- **Infra:** alertas nativos no Redis (instancia fora, conexoes recusadas) e correlacao com o horario dos logs acima.
+- **Opcional:** expor um contador Prometheus (ex.: `rate_limit_redis_unavailable_total`) se no futuro instrumentarem o middleware — hoje o sinal principal e o log estruturado.
+
+### Fail-closed (opcional)
+
+Se a politica for **recusar trafego** quando nao for possivel aplicar rate limit (seguranca acima de disponibilidade), altere o ramo em que `redis is None` para devolver **503** em vez de `call_next`, por exemplo:
+
+```python
+# Exemplo: fail-closed — nao usar sem alinhar com o time (health checks e webhooks podem ser afetados).
+return JSONResponse(
+    status_code=503,
+    content={'detail': 'Rate limiting unavailable: Redis client not configured'},
+)
+```
+
+Avalie excecoes por rota (ex.: manter `GET /health` isento) antes de ativar isto em producao.
+
+---
+
 ## 5) Checklist de health check pós-deploy
 
 Execute na ordem:

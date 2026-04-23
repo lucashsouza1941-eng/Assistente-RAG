@@ -130,7 +130,7 @@ jobs:
         env:
           NEXTAUTH_SECRET: ${{ secrets.CI_NEXTAUTH_SECRET }}
           NEXTAUTH_URL: ${{ vars.CI_NEXTAUTH_URL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.CI_E2E_ADMIN_PASSWORD }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
           ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD_HASH }}
           PORT: "3000"
         run: |

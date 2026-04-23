@@ -45,7 +45,7 @@ def _normalized_path(path: str) -> str:
 
 def _rate_limit_scope(path: str) -> str | None:
     p = _normalized_path(path)
-    if p == '/health':
+    if p == '/health' or p == '/internal/health':
         return None
     if p == '/whatsapp/webhook':
         return 'webhook'
@@ -80,7 +80,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         redis = getattr(request.app.state, 'redis_client', None)
         if redis is None:
-            log.warning('rate_limit_skipped', metadata={'reason': 'redis_client_missing'})
+            # Fail-open: sem Redis no app.state nao ha contadores de rate limit — a requisicao segue.
+            # Trade-off: disponibilidade acima de protecao ate o cliente Redis voltar (ver RUNBOOK).
+            client = request.client
+            ip = client.host if client else 'unknown'
+            log.critical(
+                'rate_limit_skipped',
+                reason='redis_client_missing',
+                ip=ip,
+                path=request.url.path,
+            )
             return await call_next(request)
 
         ip = get_client_ip(request)

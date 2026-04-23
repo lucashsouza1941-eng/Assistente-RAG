@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from src.core.logging import get_logger
+
 _PREFIX = 'OBENC1:'
+log = get_logger(module='core.encryption')
 
 
 def _fernet(key_material: str) -> Fernet:
@@ -26,6 +29,15 @@ def decrypt_value(ciphertext_or_plain: str, key_material: str) -> str:
     try:
         return f.decrypt(raw.encode('ascii')).decode('utf-8')
     except InvalidToken:
+        preview = f'{ciphertext_or_plain[:20]}...'
+        log.error(
+            'decrypt_failed_invalid_token',
+            hint='Possível rotação de SETTINGS_ENCRYPTION_KEY incorreta',
+            preview=preview,
+            metadata={'prefix': _PREFIX, 'value_length': len(ciphertext_or_plain)},
+        )
+        # Trade-off consciente: mantemos o ciphertext para não quebrar migração/legado,
+        # mas registramos erro estruturado para tornar falhas de rotação/chave visíveis.
         return ciphertext_or_plain
 
 

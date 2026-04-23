@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test"
 
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "admin123"
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD
+if (!ADMIN_PASSWORD) {
+  throw new Error(
+    "E2E_ADMIN_PASSWORD não definido. Defina no .env.test ou nos secrets do CI. Nunca use fallback de senha em testes.",
+  )
+}
 
 async function installCommonApiMocks(page: Page) {
   const conversations = [

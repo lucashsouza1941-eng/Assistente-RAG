@@ -101,8 +101,16 @@ docker compose exec app alembic upgrade head
 
 ### 3. Verificar saude da API
 
+O projeto expõe **um único par de contratos** de health (mesmas dependências: Postgres, Redis, extensão `vector`):
+
+| Rota | Autenticação | Uso |
+|------|----------------|-----|
+| `GET /health` | Nenhuma | Load balancer, Docker healthcheck, Kubernetes liveness/readiness. **200** com `{"status":"ok",...}` ou **503** com mensagem em texto. |
+| `GET /internal/health` | Header `X-API-Key` (igual às rotas da API) | Operadores e monitoração interna. **200** com JSON estruturado; em **503** o corpo indica `db` / `redis` / `vector_store` como `ok` ou `down`. |
+
 ```bash
-curl http://localhost:8000/health
+curl -fsS http://localhost:8000/health
+curl -fsS -H "X-API-Key: SUA_API_KEY" http://localhost:8000/internal/health
 ```
 
 ### 4. Subir frontend (Next.js)
