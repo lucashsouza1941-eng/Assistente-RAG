@@ -79,6 +79,12 @@ export async function fetchMessages(conversationId: string): Promise<MessageResp
   return parseJson<MessageResponse[]>(res)
 }
 
+export async function fetchUnreadCount(): Promise<number> {
+  const res = await apiFetch("/conversations/unread-count")
+  const data = await parseJson<{ count: number }>(res)
+  return data.count
+}
+
 export async function fetchDocuments(page: number, size: number): Promise<DocumentPage> {
   const q = new URLSearchParams({ page: String(page), size: String(size) })
   const res = await apiFetch(`/knowledge/documents?${q}`)

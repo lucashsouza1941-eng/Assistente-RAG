@@ -44,10 +44,18 @@ class ConversationService:
         return list(items), total
 
     async def list_messages(self, conversation_id: UUID) -> list[Message]:
-        if await self.db.get(Conversation, conversation_id) is None:
+        conv = await self.db.get(Conversation, conversation_id)
+        if conv is None:
             raise ValueError('Conversation not found')
+        if not conv.is_read:
+            conv.is_read = True
+            await self.db.commit()
         rows = (await self.db.execute(select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.asc()))).scalars().all()
         return list(rows)
+
+    async def count_unread(self) -> int:
+        stmt = select(func.count(Conversation.id)).where(Conversation.is_read.is_(False))
+        return int(await self.db.scalar(stmt) or 0)
 
     async def _get_or_create(self, conversation_id: UUID | None) -> Conversation:
         if conversation_id is not None:

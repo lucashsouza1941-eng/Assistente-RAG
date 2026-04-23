@@ -40,6 +40,10 @@ class ConversationPage(Page[ConversationResponse]):
     pass
 
 
+class UnreadCountResponse(BaseModel):
+    count: int
+
+
 class MessageResponse(BaseModel):
     id: str
     role: MessageRole

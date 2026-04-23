@@ -12,6 +12,7 @@ from src.core.logging import bind_global_context, configure_logging
 from src.core.middleware import CorrelationIDMiddleware, RateLimitMiddleware, TimingMiddleware
 from src.dependencies import AsyncSessionLocal, engine, get_db_session, get_redis
 from src.modules.analytics.router import router as analytics_router
+from src.modules.chat.conversations_router import router as conversations_router
 from src.modules.chat.router import router as chat_router
 from src.modules.knowledge.router import router as knowledge_router
 from src.modules.metrics.router import router as metrics_router
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware)
 
     app.include_router(knowledge_router)
+    app.include_router(conversations_router)
     app.include_router(chat_router)
     app.include_router(whatsapp_router)
     app.include_router(whatsapp_admin_router)

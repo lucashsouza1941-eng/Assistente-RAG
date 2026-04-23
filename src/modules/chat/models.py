@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Enum, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +33,8 @@ class Conversation(Base):
     last_message_at: Mapped[datetime] = mapped_column(server_default=func.now())
     message_count: Mapped[int] = mapped_column(default=0)
     resolved_without_human: Mapped[bool] = mapped_column(default=False)
+    # Coluna SQL `read`: False = conversa não lida no painel admin.
+    is_read: Mapped[bool] = mapped_column('read', Boolean(), default=False, nullable=False)
 
     messages: Mapped[list[Message]] = relationship(back_populates='conversation', cascade='all, delete-orphan')
 

@@ -35,6 +35,7 @@ class ConversationFactory(factory.Factory):  # type: ignore[misc]  # factory_boy
 
     whatsapp_number_hash = 'b' * 64
     status = ConversationStatus.ACTIVE
+    is_read = True
 
 
 class MessageFactory(factory.Factory):  # type: ignore[misc]  # factory_boy expõe base dinâmica sem tipos estáticos.

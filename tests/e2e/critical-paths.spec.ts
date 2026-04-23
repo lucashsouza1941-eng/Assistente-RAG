@@ -138,6 +138,14 @@ async function installCommonApiMocks(page: Page) {
       })
     }
 
+    if (method === "GET" && path.endsWith("/conversations/unread-count")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ count: 0 }),
+      })
+    }
+
     if (method === "GET" && /\/api\/proxy\/chat\/conversations\/[^/]+\/messages$/.test(path)) {
       return route.fulfill({
         status: 200,

@@ -17,6 +17,7 @@ import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { useUnreadCount } from "@/hooks/use-unread-count"
 import { useState } from "react"
 
 const navItems = [
@@ -34,7 +35,6 @@ const navItems = [
     title: "Conversas",
     href: "/conversations",
     icon: MessageSquare,
-    badge: 3,
   },
   {
     title: "Configurações",
@@ -62,6 +62,7 @@ function ToothIcon({ className }: { className?: string }) {
 export function AdminSidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const unreadCount = useUnreadCount()
 
   return (
     <>
@@ -104,6 +105,10 @@ export function AdminSidebar() {
         <nav className="flex-1 px-4 py-6 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href
+            const showUnreadBadge =
+              item.href === "/conversations" &&
+              unreadCount !== null &&
+              unreadCount > 0
             return (
               <Link
                 key={item.href}
@@ -118,7 +123,7 @@ export function AdminSidebar() {
               >
                 <item.icon className="h-5 w-5" />
                 <span>{item.title}</span>
-                {item.badge && (
+                {showUnreadBadge && (
                   <Badge
                     variant={isActive ? "secondary" : "default"}
                     className={cn(
@@ -126,7 +131,7 @@ export function AdminSidebar() {
                       isActive ? "bg-white/20 text-white" : "bg-primary text-primary-foreground"
                     )}
                   >
-                    {item.badge}
+                    {unreadCount > 99 ? "99+" : unreadCount}
                   </Badge>
                 )}
               </Link>
